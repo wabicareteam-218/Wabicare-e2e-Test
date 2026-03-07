@@ -1,0 +1,29 @@
+{
+  "name": "wabicare-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "E2E tests for Wabi Clinic Flutter web app (Playwright)",
+  "scripts": {
+    "test": "playwright test",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:mobile": "playwright test --project='Mobile Chrome' --project='Mobile Safari'",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:smoke": "playwright test tests/login.spec.ts -g \"landing page loads\" --project=chromium",
+    "test:smoke:headed": "playwright test tests/login.spec.ts -g \"landing page loads\" --project=chromium --headed",
+    "report": "playwright show-report",
+    "report:gherkin": "open playwright-report/gherkin-report.html 2>/dev/null || echo 'Open playwright-report/gherkin-report.html in your browser'",
+    "test:login": "playwright test tests/login.spec.ts --project=chromium",
+    "test:login:headed": "playwright test tests/login.spec.ts --project=chromium --headed",
+    "test:intake": "playwright test tests/intake-fill.spec.ts --project=chromium",
+    "test:intake:headed": "playwright test tests/intake-fill.spec.ts --project=chromium --headed",
+    "test:all": "playwright test tests/login.spec.ts tests/intake-fill.spec.ts --project=chromium",
+    "test:all:headed": "playwright test tests/login.spec.ts tests/intake-fill.spec.ts --project=chromium --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "dotenv": "^16.4.5"
+  }
+}
