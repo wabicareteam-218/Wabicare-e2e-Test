@@ -133,3 +133,67 @@ export async function handleDuplicateDialog(page: Page): Promise<boolean> {
   }
   return false;
 }
+
+/**
+ * Opens the mesh/app-switcher menu (2nd unnamed icon button in the top bar)
+ * and navigates to HRMS using keyboard Tab navigation.
+ * Menu items: Clinic, Communication, Billing, Parent Portal, HRMS, LMS, Admin
+ * HRMS is the 5th item, so Tab 5 times then Enter.
+ */
+export async function navigateToHRMS(page: Page): Promise<void> {
+  await enableAccessibility(page);
+  const allBtns = page.locator('flt-semantics[role="button"]');
+  const count = await allBtns.count();
+  const emptyIndices: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const txt = (await allBtns.nth(i).textContent())?.trim() || '';
+    if (txt === '') emptyIndices.push(i);
+  }
+  // 2nd empty button is the mesh/app-switcher icon
+  await allBtns.nth(emptyIndices[1]).dispatchEvent('click');
+  await page.waitForTimeout(3000);
+  await enableAccessibility(page);
+
+  // Tab to HRMS (5th menu item) and press Enter
+  for (let t = 0; t < 5; t++) {
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(200);
+  }
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(5000);
+  await enableAccessibility(page);
+}
+
+/**
+ * Reports a bug via the AI Copilot chat sidebar.
+ * Opens AI Copilot, types a bug description in the chat input, and sends it.
+ * Best-effort: does not fail the calling test if the report itself doesn't go through.
+ */
+export async function reportBugViaCopilot(
+  page: Page,
+  bug: { category: string; title: string; description: string; screenshotPath?: string }
+): Promise<void> {
+  try {
+    await enableAccessibility(page);
+    await clickFlutterButton(page, 'AI Copilot', { timeout: 5000 });
+    await page.waitForTimeout(4000);
+    await enableAccessibility(page);
+
+    const message = `[Bug Report] Category: ${bug.category} | Title: ${bug.title} | Description: ${bug.description}`;
+
+    const chatInput = page.locator('flt-semantics-host input').last();
+    await chatInput.focus();
+    await page.keyboard.press('Control+a');
+    await page.keyboard.type(message, { delay: 20 });
+    await page.waitForTimeout(500);
+
+    // Send via Enter
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(5000);
+    await enableAccessibility(page);
+
+    console.log(`  [Bug Reporter] Submitted: ${bug.title}`);
+  } catch (err) {
+    console.log(`  [Bug Reporter] Failed to submit bug report (non-fatal): ${err}`);
+  }
+}

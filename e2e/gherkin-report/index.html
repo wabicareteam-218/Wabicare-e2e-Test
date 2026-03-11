@@ -82,19 +82,19 @@
 <body>
   <div class="header">
     <h1>WabiCare E2E Test Report</h1>
-    <div class="subtitle">Patient Intake Automation &mdash; 3/10/2026, 8:13:43 AM &mdash; Duration: 1m 34s</div>
+    <div class="subtitle">Patient Intake Automation &mdash; 3/11/2026, 8:55:01 AM &mdash; Duration: 1m 42s</div>
   </div>
 
   <div class="summary-cards">
-    <div class="card total"><div class="value">10</div><div class="label">Total Steps</div></div>
-    <div class="card pass"><div class="value">10</div><div class="label">Passed</div></div>
-    <div class="card fail"><div class="value">0</div><div class="label">Failed</div></div>
+    <div class="card total"><div class="value">6</div><div class="label">Total Steps</div></div>
+    <div class="card pass"><div class="value">5</div><div class="label">Passed</div></div>
+    <div class="card fail"><div class="value">1</div><div class="label">Failed</div></div>
     <div class="card skip"><div class="value">0</div><div class="label">Skipped</div></div>
-    <div class="card total"><div class="value">100%</div><div class="label">Pass Rate</div></div>
+    <div class="card total"><div class="value">83%</div><div class="label">Pass Rate</div></div>
   </div>
 
   <div class="progress-bar">
-    <div class="progress-fill good" style="width: 100%"></div>
+    <div class="progress-fill good" style="width: 83%"></div>
   </div>
 
   <div class="container">
@@ -112,107 +112,71 @@
             <div class="step-header">
               <span class="step-icon pass">&#10004;</span>
               <span class="step-text">authenticate</span>
-              <span class="step-duration">30.7s</span>
+              <span class="step-duration">34.3s</span>
             </div>
             
             
           </div></div>
         </div>
-        <div class="feature passed">
+        <div class="feature failed">
           <div class="feature-header">
             <h2>
-              <span class="feature-badge passed">PASSED</span>
-              Create and Verify Session
+              <span class="feature-badge failed">FAILED</span>
+              HRMS Onboarding
             </h2>
-            <span class="feature-summary">9/9 steps passed</span>
+            <span class="feature-summary">4/5 steps passed</span>
           </div>
           <div class="steps">
           <div class="step pass">
             <div class="step-header">
               <span class="step-icon pass">&#10004;</span>
-              <span class="step-text"><span class="keyword">When</span> I click Sessions in the left navigation</span>
-              <span class="step-duration">14.0s</span>
+              <span class="step-text"><span class="keyword">Given</span> I navigate to HRMS via the app-switcher menu</span>
+              <span class="step-duration">19.0s</span>
             </div>
             
-            <div class="screenshots"><img src="screenshots/When-I-click-Sessions-in-the-left-navigation-0.png" alt="When I click Sessions in the left navigation" loading="lazy" onclick="openModal(this.src)" /></div>
+            <div class="screenshots"><img src="screenshots/Given-I-navigate-to-HRMS-via-the-app-switcher-menu-0.png" alt="Given I navigate to HRMS via the app-switcher menu" loading="lazy" onclick="openModal(this.src)" /></div>
           </div>
           <div class="step pass">
             <div class="step-header">
               <span class="step-icon pass">&#10004;</span>
-              <span class="step-text"><span class="keyword">When</span> I click Add Session</span>
-              <span class="step-duration">3.1s</span>
+              <span class="step-text"><span class="keyword">When</span> I click the Onboarding module</span>
+              <span class="step-duration">3.3s</span>
             </div>
             
-            <div class="screenshots"><img src="screenshots/When-I-click-Add-Session-0.png" alt="When I click Add Session" loading="lazy" onclick="openModal(this.src)" /></div>
+            <div class="screenshots"><img src="screenshots/When-I-click-the-Onboarding-module-0.png" alt="When I click the Onboarding module" loading="lazy" onclick="openModal(this.src)" /></div>
           </div>
           <div class="step pass">
             <div class="step-header">
               <span class="step-icon pass">&#10004;</span>
-              <span class="step-text"><span class="keyword">When</span> I enter a session title</span>
-              <span class="step-duration">1.9s</span>
+              <span class="step-text"><span class="keyword">Then</span> I see All, In Progress, Completed, Overdue filter tabs</span>
+              <span class="step-duration">0.2s</span>
             </div>
             
-            <div class="screenshots"><img src="screenshots/When-I-enter-a-session-title-0.png" alt="When I enter a session title" loading="lazy" onclick="openModal(this.src)" /></div>
+            <div class="screenshots"><img src="screenshots/Then-I-see-All--In-Progress--Completed--Overdue-filter-tabs-0.png" alt="Then I see All, In Progress, Completed, Overdue filter tabs" loading="lazy" onclick="openModal(this.src)" /></div>
           </div>
           <div class="step pass">
             <div class="step-header">
               <span class="step-icon pass">&#10004;</span>
-              <span class="step-text"><span class="keyword">When</span> I click Select a patient and choose a patient</span>
-              <span class="step-duration">4.6s</span>
+              <span class="step-text"><span class="keyword">And</span> I see the New Onboarding button</span>
+              <span class="step-duration">0.2s</span>
             </div>
             
-            <div class="screenshots"><img src="screenshots/When-I-click-Select-a-patient-and-choose-a-patient-0.png" alt="When I click Select a patient and choose a patient" loading="lazy" onclick="openModal(this.src)" /><img src="screenshots/When-I-click-Select-a-patient-and-choose-a-patient-1.png" alt="When I click Select a patient and choose a patient" loading="lazy" onclick="openModal(this.src)" /></div>
+            <div class="screenshots"><img src="screenshots/And-I-see-the-New-Onboarding-button-0.png" alt="And I see the New Onboarding button" loading="lazy" onclick="openModal(this.src)" /></div>
           </div>
-          <div class="step pass">
+          <div class="step fail">
             <div class="step-header">
-              <span class="step-icon pass">&#10004;</span>
-              <span class="step-text"><span class="keyword">When</span> I select Session type and 1h duration</span>
-              <span class="step-duration">1.1s</span>
+              <span class="step-icon fail">&#10008;</span>
+              <span class="step-text"><span class="keyword">When</span> I click New Onboarding then I should see a form</span>
+              <span class="step-duration">24.9s</span>
             </div>
-            
-            <div class="screenshots"><img src="screenshots/When-I-select-Session-type-and-1h-duration-0.png" alt="When I select Session type and 1h duration" loading="lazy" onclick="openModal(this.src)" /></div>
-          </div>
-          <div class="step pass">
-            <div class="step-header">
-              <span class="step-icon pass">&#10004;</span>
-              <span class="step-text"><span class="keyword">When</span> I select CPT code 97153</span>
-              <span class="step-duration">0.6s</span>
-            </div>
-            
-            <div class="screenshots"><img src="screenshots/When-I-select-CPT-code-97153-0.png" alt="When I select CPT code 97153" loading="lazy" onclick="openModal(this.src)" /></div>
-          </div>
-          <div class="step pass">
-            <div class="step-header">
-              <span class="step-icon pass">&#10004;</span>
-              <span class="step-text"><span class="keyword">When</span> I click Save and session is created</span>
-              <span class="step-duration">5.1s</span>
-            </div>
-            
-            <div class="screenshots"><img src="screenshots/When-I-click-Save-and-session-is-created-0.png" alt="When I click Save and session is created" loading="lazy" onclick="openModal(this.src)" /></div>
-          </div>
-          <div class="step pass">
-            <div class="step-header">
-              <span class="step-icon pass">&#10004;</span>
-              <span class="step-text"><span class="keyword">When</span> I navigate to Schedule</span>
-              <span class="step-duration">6.1s</span>
-            </div>
-            
-            <div class="screenshots"><img src="screenshots/When-I-navigate-to-Schedule-0.png" alt="When I navigate to Schedule" loading="lazy" onclick="openModal(this.src)" /></div>
-          </div>
-          <div class="step pass">
-            <div class="step-header">
-              <span class="step-icon pass">&#10004;</span>
-              <span class="step-text"><span class="keyword">Then</span> I verify the session on the calendar for today</span>
-              <span class="step-duration">4.7s</span>
-            </div>
-            
-            <div class="screenshots"><img src="screenshots/Then-I-verify-the-session-on-the-calendar-for-today-0.png" alt="Then I verify the session on the calendar for today" loading="lazy" onclick="openModal(this.src)" /><img src="screenshots/Then-I-verify-the-session-on-the-calendar-for-today-1.png" alt="Then I verify the session on the calendar for today" loading="lazy" onclick="openModal(this.src)" /></div>
+            <div class="error-msg"><pre>Error: BUG DETECTED: New Onboarding form did not load. Page shows: &quot;Vanilla ClinicHRMSOnboarding DetailAI CopilotDashboardHiringEmployeeManagerRewardsOrg ChartReportsSettingsFailed to Load OnboardingFailed to load onboarding (404)BackTry Again&quot;. Expected a form with input fields. Bug was auto-reported via AI Copilot.</pre></div>
+            <div class="screenshots"><img src="screenshots/When-I-click-New-Onboarding-then-I-should-see-a-form-0.png" alt="When I click New Onboarding then I should see a form" loading="lazy" onclick="openModal(this.src)" /><img src="screenshots/When-I-click-New-Onboarding-then-I-should-see-a-form-1.png" alt="When I click New Onboarding then I should see a form" loading="lazy" onclick="openModal(this.src)" /><img src="screenshots/When-I-click-New-Onboarding-then-I-should-see-a-form-2.png" alt="When I click New Onboarding then I should see a form" loading="lazy" onclick="openModal(this.src)" /><img src="screenshots/When-I-click-New-Onboarding-then-I-should-see-a-form-3.png" alt="When I click New Onboarding then I should see a form" loading="lazy" onclick="openModal(this.src)" /></div>
           </div></div>
         </div>
   </div>
 
   <div class="footer">
-    Generated by <a href="#">WabiCare E2E</a> &middot; Playwright passed
+    Generated by <a href="#">WabiCare E2E</a> &middot; Playwright failed
   </div>
 
   <div class="modal" id="modal" onclick="closeModal()">
