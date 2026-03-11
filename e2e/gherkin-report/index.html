@@ -12,6 +12,7 @@
       --bg: #f8fafc; --surface: #ffffff; --text: #1e293b;
       --muted: #64748b; --border: #e2e8f0;
       --primary: #7c3aed; --primary-light: #ede9fe;
+      --orange: #f97316; --orange-bg: #fff7ed; --orange-border: #fdba74;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
@@ -28,6 +29,7 @@
     .card.fail .value { color: var(--fail); }
     .card.skip .value { color: var(--skip); }
     .card.total .value { color: var(--primary); }
+    .card.issues .value { color: var(--orange); }
 
     .progress-bar { margin: 0 2rem 2rem; background: var(--border); border-radius: 8px; height: 10px; overflow: hidden; }
     .progress-fill { height: 100%; border-radius: 8px; transition: width 0.5s; }
@@ -65,6 +67,25 @@
     .screenshots img { width: 180px; height: 110px; object-fit: cover; border-radius: 8px; border: 2px solid var(--border); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
     .screenshots img:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
 
+    /* ── Open Issues ── */
+    .open-issues-section { background: var(--surface); border-radius: 12px; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden; border-left: 4px solid var(--orange); }
+    .open-issues-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
+    .open-issues-header h2 { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; color: var(--orange); }
+    .open-issues-header p { font-size: 0.85rem; color: var(--muted); margin-top: 0.25rem; }
+    .open-issues-icon { font-size: 1.2rem; }
+    .open-issues-count { display: inline-flex; align-items: center; justify-content: center; background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); border-radius: 999px; font-size: 0.7rem; font-weight: 700; min-width: 1.5rem; height: 1.5rem; padding: 0 0.4rem; }
+    .open-issues-list { padding: 0.75rem 1.5rem 1.25rem; }
+    .issue-card { background: var(--orange-bg); border: 1px solid var(--orange-border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+    .issue-card:last-child { margin-bottom: 0; }
+    .issue-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+    .issue-badge { background: var(--orange); color: white; font-size: 0.6rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .issue-link { font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 600; word-break: break-all; }
+    .issue-link:hover { text-decoration: underline; }
+    .issue-title { font-size: 1rem; font-weight: 600; margin-bottom: 0.35rem; }
+    .issue-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; flex-wrap: wrap; }
+    .issue-category { background: var(--primary-light); color: var(--primary); padding: 0.1rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem; }
+    .issue-desc { font-size: 0.85rem; color: var(--text); line-height: 1.5; }
+
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; cursor: pointer; }
     .modal.active { display: flex; }
     .modal img { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
@@ -82,7 +103,7 @@
 <body>
   <div class="header">
     <h1>WabiCare E2E Test Report</h1>
-    <div class="subtitle">Patient Intake Automation &mdash; 3/11/2026, 8:55:01 AM &mdash; Duration: 1m 42s</div>
+    <div class="subtitle">QA Automation &mdash; 3/11/2026, 9:37:35 AM &mdash; Duration: 1m 55s</div>
   </div>
 
   <div class="summary-cards">
@@ -91,6 +112,7 @@
     <div class="card fail"><div class="value">1</div><div class="label">Failed</div></div>
     <div class="card skip"><div class="value">0</div><div class="label">Skipped</div></div>
     <div class="card total"><div class="value">83%</div><div class="label">Pass Rate</div></div>
+    <div class="card issues"><div class="value">1</div><div class="label">Open Issues</div></div>
   </div>
 
   <div class="progress-bar">
@@ -112,7 +134,7 @@
             <div class="step-header">
               <span class="step-icon pass">&#10004;</span>
               <span class="step-text">authenticate</span>
-              <span class="step-duration">34.3s</span>
+              <span class="step-duration">31.6s</span>
             </div>
             
             
@@ -131,7 +153,7 @@
             <div class="step-header">
               <span class="step-icon pass">&#10004;</span>
               <span class="step-text"><span class="keyword">Given</span> I navigate to HRMS via the app-switcher menu</span>
-              <span class="step-duration">19.0s</span>
+              <span class="step-duration">18.9s</span>
             </div>
             
             <div class="screenshots"><img src="screenshots/Given-I-navigate-to-HRMS-via-the-app-switcher-menu-0.png" alt="Given I navigate to HRMS via the app-switcher menu" loading="lazy" onclick="openModal(this.src)" /></div>
@@ -140,7 +162,7 @@
             <div class="step-header">
               <span class="step-icon pass">&#10004;</span>
               <span class="step-text"><span class="keyword">When</span> I click the Onboarding module</span>
-              <span class="step-duration">3.3s</span>
+              <span class="step-duration">3.2s</span>
             </div>
             
             <div class="screenshots"><img src="screenshots/When-I-click-the-Onboarding-module-0.png" alt="When I click the Onboarding module" loading="lazy" onclick="openModal(this.src)" /></div>
@@ -149,7 +171,7 @@
             <div class="step-header">
               <span class="step-icon pass">&#10004;</span>
               <span class="step-text"><span class="keyword">Then</span> I see All, In Progress, Completed, Overdue filter tabs</span>
-              <span class="step-duration">0.2s</span>
+              <span class="step-duration">0.1s</span>
             </div>
             
             <div class="screenshots"><img src="screenshots/Then-I-see-All--In-Progress--Completed--Overdue-filter-tabs-0.png" alt="Then I see All, In Progress, Completed, Overdue filter tabs" loading="lazy" onclick="openModal(this.src)" /></div>
@@ -167,11 +189,39 @@
             <div class="step-header">
               <span class="step-icon fail">&#10008;</span>
               <span class="step-text"><span class="keyword">When</span> I click New Onboarding then I should see a form</span>
-              <span class="step-duration">24.9s</span>
+              <span class="step-duration">38.5s</span>
             </div>
-            <div class="error-msg"><pre>Error: BUG DETECTED: New Onboarding form did not load. Page shows: &quot;Vanilla ClinicHRMSOnboarding DetailAI CopilotDashboardHiringEmployeeManagerRewardsOrg ChartReportsSettingsFailed to Load OnboardingFailed to load onboarding (404)BackTry Again&quot;. Expected a form with input fields. Bug was auto-reported via AI Copilot.</pre></div>
+            <div class="error-msg"><pre>Error: BUG DETECTED: New Onboarding form did not load. Page: &quot;Vanilla ClinicHRMSOnboarding DetailAI CopilotDashboardHiringEmployeeManagerRewardsOrg ChartReportsSettingsFailed to Load OnboardingFailed to load onboarding (404)BackTry Again&quot;. Bug auto-reported via AI Copilot. GitHub issue: https://github.com/wabicareteam/wabi-clinic-flutter/issues</pre></div>
             <div class="screenshots"><img src="screenshots/When-I-click-New-Onboarding-then-I-should-see-a-form-0.png" alt="When I click New Onboarding then I should see a form" loading="lazy" onclick="openModal(this.src)" /><img src="screenshots/When-I-click-New-Onboarding-then-I-should-see-a-form-1.png" alt="When I click New Onboarding then I should see a form" loading="lazy" onclick="openModal(this.src)" /><img src="screenshots/When-I-click-New-Onboarding-then-I-should-see-a-form-2.png" alt="When I click New Onboarding then I should see a form" loading="lazy" onclick="openModal(this.src)" /><img src="screenshots/When-I-click-New-Onboarding-then-I-should-see-a-form-3.png" alt="When I click New Onboarding then I should see a form" loading="lazy" onclick="openModal(this.src)" /></div>
           </div></div>
+        </div>
+    
+        <div class="open-issues-section">
+          <div class="open-issues-header">
+            <h2>
+              <span class="open-issues-icon">&#9888;</span>
+              Open Issues
+              <span class="open-issues-count">1</span>
+            </h2>
+            <p>Bugs auto-reported via AI Copilot during this test run</p>
+          </div>
+          <div class="open-issues-list">
+            
+          <div class="issue-card">
+            <div class="issue-header">
+              <span class="issue-badge">OPEN</span>
+              <a class="issue-link" href="https://github.com/wabicareteam/wabi-clinic-flutter/issues" target="_blank" rel="noopener">
+                https://github.com/wabicareteam/wabi-clinic-flutter/issues
+              </a>
+            </div>
+            <div class="issue-title">New Onboarding form fails to load</div>
+            <div class="issue-meta">
+              <span class="issue-category">HRMS - Onboarding</span>
+              <span class="issue-date">Reported: 3/11/2026, 9:37:33 AM</span>
+            </div>
+            <div class="issue-desc">Clicking &quot;New Onboarding&quot; does not show a form. Instead: Vanilla ClinicHRMSOnboarding DetailAI CopilotDashboardHiringEmployeeManagerRewardsOrg ChartReportsSettingsFailed to Load OnboardingFailed to load onboarding (404)BackTry Again. Expected: A new onboarding form with employee fields and a Save button. (exact issue URL not captured)</div>
+          </div>
+          </div>
         </div>
   </div>
 

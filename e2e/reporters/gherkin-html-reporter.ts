@@ -22,6 +22,14 @@ interface FeatureResult {
   steps: StepResult[];
 }
 
+interface OpenIssue {
+  url: string;
+  title: string;
+  category: string;
+  description: string;
+  reportedAt: string;
+}
+
 class GherkinHtmlReporter implements Reporter {
   private features: Map<string, FeatureResult> = new Map();
   private outputDir: string;
@@ -39,6 +47,11 @@ class GherkinHtmlReporter implements Reporter {
     const screenshotsDir = path.join(this.outputDir, 'screenshots');
     if (!fs.existsSync(screenshotsDir)) {
       fs.mkdirSync(screenshotsDir, { recursive: true });
+    }
+    // Clear stale open-issues from previous runs
+    const issuesFile = path.join(this.outputDir, 'open-issues.json');
+    if (fs.existsSync(issuesFile)) {
+      fs.unlinkSync(issuesFile);
     }
   }
 
@@ -73,13 +86,24 @@ class GherkinHtmlReporter implements Reporter {
 
   onEnd(result: FullResult) {
     const totalDuration = Date.now() - this.startTime;
-    const html = this.generateHtml(result, totalDuration);
+    const openIssues = this.loadOpenIssues();
+    const html = this.generateHtml(result, totalDuration, openIssues);
     const reportPath = path.join(this.outputDir, 'index.html');
     fs.writeFileSync(reportPath, html, 'utf-8');
     console.log(`\n  Gherkin HTML Report: ${path.resolve(reportPath)}\n`);
   }
 
-  private generateHtml(result: FullResult, totalDuration: number): string {
+  private loadOpenIssues(): OpenIssue[] {
+    const issuesFile = path.join(this.outputDir, 'open-issues.json');
+    try {
+      if (fs.existsSync(issuesFile)) {
+        return JSON.parse(fs.readFileSync(issuesFile, 'utf-8'));
+      }
+    } catch { /* empty */ }
+    return [];
+  }
+
+  private generateHtml(result: FullResult, totalDuration: number, openIssues: OpenIssue[]): string {
     let totalPassed = 0;
     let totalFailed = 0;
     let totalSkipped = 0;
@@ -122,7 +146,6 @@ class GherkinHtmlReporter implements Reporter {
           errorHtml = `<div class="error-msg"><pre>${this.escapeHtml(step.error)}</pre></div>`;
         }
 
-        // Detect Gherkin keyword
         const gherkinMatch = step.title.match(/^(Given|When|And|Then|But)\s/i);
         const keyword = gherkinMatch ? `<span class="keyword">${gherkinMatch[1]}</span> ` : '';
         const stepText = gherkinMatch ? step.title.substring(gherkinMatch[0].length) : step.title;
@@ -152,6 +175,45 @@ class GherkinHtmlReporter implements Reporter {
         </div>`;
     }
 
+    // ── Open Issues Section ──
+    let openIssuesHtml = '';
+    if (openIssues.length > 0) {
+      let issueCards = '';
+      for (const issue of openIssues) {
+        const when = new Date(issue.reportedAt).toLocaleString();
+        issueCards += `
+          <div class="issue-card">
+            <div class="issue-header">
+              <span class="issue-badge">OPEN</span>
+              <a class="issue-link" href="${this.escapeHtml(issue.url)}" target="_blank" rel="noopener">
+                ${this.escapeHtml(issue.url)}
+              </a>
+            </div>
+            <div class="issue-title">${this.escapeHtml(issue.title)}</div>
+            <div class="issue-meta">
+              <span class="issue-category">${this.escapeHtml(issue.category)}</span>
+              <span class="issue-date">Reported: ${this.escapeHtml(when)}</span>
+            </div>
+            <div class="issue-desc">${this.escapeHtml(issue.description)}</div>
+          </div>`;
+      }
+
+      openIssuesHtml = `
+        <div class="open-issues-section">
+          <div class="open-issues-header">
+            <h2>
+              <span class="open-issues-icon">&#9888;</span>
+              Open Issues
+              <span class="open-issues-count">${openIssues.length}</span>
+            </h2>
+            <p>Bugs auto-reported via AI Copilot during this test run</p>
+          </div>
+          <div class="open-issues-list">
+            ${issueCards}
+          </div>
+        </div>`;
+    }
+
     const durStr = this.formatDuration(totalDuration);
     const now = new Date().toLocaleString();
 
@@ -169,6 +231,7 @@ class GherkinHtmlReporter implements Reporter {
       --bg: #f8fafc; --surface: #ffffff; --text: #1e293b;
       --muted: #64748b; --border: #e2e8f0;
       --primary: #7c3aed; --primary-light: #ede9fe;
+      --orange: #f97316; --orange-bg: #fff7ed; --orange-border: #fdba74;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
@@ -185,6 +248,7 @@ class GherkinHtmlReporter implements Reporter {
     .card.fail .value { color: var(--fail); }
     .card.skip .value { color: var(--skip); }
     .card.total .value { color: var(--primary); }
+    .card.issues .value { color: var(--orange); }
 
     .progress-bar { margin: 0 2rem 2rem; background: var(--border); border-radius: 8px; height: 10px; overflow: hidden; }
     .progress-fill { height: 100%; border-radius: 8px; transition: width 0.5s; }
@@ -222,6 +286,25 @@ class GherkinHtmlReporter implements Reporter {
     .screenshots img { width: 180px; height: 110px; object-fit: cover; border-radius: 8px; border: 2px solid var(--border); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
     .screenshots img:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
 
+    /* ── Open Issues ── */
+    .open-issues-section { background: var(--surface); border-radius: 12px; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden; border-left: 4px solid var(--orange); }
+    .open-issues-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
+    .open-issues-header h2 { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; color: var(--orange); }
+    .open-issues-header p { font-size: 0.85rem; color: var(--muted); margin-top: 0.25rem; }
+    .open-issues-icon { font-size: 1.2rem; }
+    .open-issues-count { display: inline-flex; align-items: center; justify-content: center; background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); border-radius: 999px; font-size: 0.7rem; font-weight: 700; min-width: 1.5rem; height: 1.5rem; padding: 0 0.4rem; }
+    .open-issues-list { padding: 0.75rem 1.5rem 1.25rem; }
+    .issue-card { background: var(--orange-bg); border: 1px solid var(--orange-border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+    .issue-card:last-child { margin-bottom: 0; }
+    .issue-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+    .issue-badge { background: var(--orange); color: white; font-size: 0.6rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .issue-link { font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 600; word-break: break-all; }
+    .issue-link:hover { text-decoration: underline; }
+    .issue-title { font-size: 1rem; font-weight: 600; margin-bottom: 0.35rem; }
+    .issue-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; flex-wrap: wrap; }
+    .issue-category { background: var(--primary-light); color: var(--primary); padding: 0.1rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem; }
+    .issue-desc { font-size: 0.85rem; color: var(--text); line-height: 1.5; }
+
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; cursor: pointer; }
     .modal.active { display: flex; }
     .modal img { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
@@ -239,7 +322,7 @@ class GherkinHtmlReporter implements Reporter {
 <body>
   <div class="header">
     <h1>WabiCare E2E Test Report</h1>
-    <div class="subtitle">Patient Intake Automation &mdash; ${now} &mdash; Duration: ${durStr}</div>
+    <div class="subtitle">QA Automation &mdash; ${now} &mdash; Duration: ${durStr}</div>
   </div>
 
   <div class="summary-cards">
@@ -248,6 +331,7 @@ class GherkinHtmlReporter implements Reporter {
     <div class="card fail"><div class="value">${totalFailed}</div><div class="label">Failed</div></div>
     <div class="card skip"><div class="value">${totalSkipped}</div><div class="label">Skipped</div></div>
     <div class="card total"><div class="value">${passRate}%</div><div class="label">Pass Rate</div></div>
+    <div class="card issues"><div class="value">${openIssues.length}</div><div class="label">Open Issues</div></div>
   </div>
 
   <div class="progress-bar">
@@ -256,6 +340,7 @@ class GherkinHtmlReporter implements Reporter {
 
   <div class="container">
     ${featuresHtml}
+    ${openIssuesHtml}
   </div>
 
   <div class="footer">
