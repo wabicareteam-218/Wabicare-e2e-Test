@@ -1,0 +1,70 @@
+{
+  "features": [
+    {
+      "name": "auth.setup.ts",
+      "steps": [
+        {
+          "title": "authenticate",
+          "status": "passed",
+          "duration": 97341,
+          "screenshots": []
+        }
+      ],
+      "runAt": "2026-03-20T07:14:03.285Z"
+    },
+    {
+      "name": "Know Your Patient",
+      "steps": [
+        {
+          "title": "Given I open Patients and select an existing patient",
+          "status": "passed",
+          "duration": 53981,
+          "screenshots": [
+            "screenshots/Given-I-open-Patients-and-select-an-existing-patient-0.png",
+            "screenshots/Given-I-open-Patients-and-select-an-existing-patient-1.png"
+          ]
+        },
+        {
+          "title": "When I open More and choose Know Your Patient",
+          "status": "failed",
+          "duration": 15240,
+          "error": "Error: BUG: \"Know Your Patient\" not found under More tab.",
+          "screenshots": [
+            "screenshots/When-I-open-More-and-choose-Know-Your-Patient-0.png",
+            "screenshots/When-I-open-More-and-choose-Know-Your-Patient-1.png",
+            "screenshots/When-I-open-More-and-choose-Know-Your-Patient-2.png"
+          ]
+        },
+        {
+          "title": "And I click Edit patient info and fill all sections",
+          "status": "skipped",
+          "duration": 0,
+          "screenshots": []
+        },
+        {
+          "title": "Then I click Save and verify details are saved",
+          "status": "skipped",
+          "duration": 0,
+          "screenshots": []
+        }
+      ],
+      "runAt": "2026-03-20T07:16:53.267Z"
+    }
+  ],
+  "openIssues": [
+    {
+      "url": "https://github.com/wabicareteam/wabi-clinic-flutter/issues",
+      "title": "\"More\" button missing on patient profile",
+      "category": "Know Your Patient",
+      "description": "After opening a patient profile, the \"More\" button was not visible in the top bar. Buttons found: Vanilla Clinic, AI Copilot, , , , Dashboard, Patients, Sessions, Schedule, Reports, Tools, Settings, Refresh, View Calendar, Active Patients\n0\nCurrently enrolled, Today's Sessions\n0\nScheduled today, Pending Intakes\n6\nAwaiting processing, Hours This Week\n0.0\nBilled hours, View All, View All, View All, View All, View All, View All. Expected: a \"More\" button in the patient profile header. (exact issue URL not captured)",
+      "reportedAt": "2026-03-20T06:05:26.930Z"
+    },
+    {
+      "url": "https://github.com/wabicareteam/wabi-clinic-flutter/issues",
+      "title": "\"More\" tab missing on patient profile",
+      "category": "Know Your Patient",
+      "description": "After opening a patient profile, the \"More\" tab was not visible. Tabs/buttons found: Vanilla Clinic, AI Copilot, , , , Dashboard, Patients, Sessions, Schedule, Reports, Tools, Settings, Refresh, View Calendar, Active Patients\n0\nCurrently enrolled, Today's Sessions\n0\nScheduled today, Pending Intakes\n6\nAwaiting processing, Hours This Week\n0.0\nBilled hours, View All, View All, View All, View All, View All, View All. Expected: Profile, Intake Forms, Scheduling, and More tabs on the patient profile. (exact issue URL not captured)",
+      "reportedAt": "2026-03-20T06:11:56.613Z"
+    }
+  ]
+}
