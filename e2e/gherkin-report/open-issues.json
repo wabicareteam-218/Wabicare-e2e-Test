@@ -1,9 +1,0 @@
-[
-  {
-    "url": "https://github.com/wabicareteam/wabi-clinic-flutter/issues",
-    "title": "New Onboarding form fails to load",
-    "category": "HRMS - Onboarding",
-    "description": "Clicking \"New Onboarding\" does not show a form. Instead: Vanilla ClinicHRMSOnboarding DetailAI CopilotDashboardHiringEmployeeManagerRewardsOrg ChartReportsSettingsFailed to Load OnboardingFailed to load onboarding (404)BackTry Again. Expected: A new onboarding form with employee fields and a Save button. (exact issue URL not captured)",
-    "reportedAt": "2026-03-11T04:07:33.882Z"
-  }
-]
