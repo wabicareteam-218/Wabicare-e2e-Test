@@ -1,48 +1,46 @@
 @sessions @e2e @qa
-Feature: Create and Verify a Session
-  Clinicians can create a new therapy session from the Sessions page,
-  fill all details in the popup, save, and verify the session appears
-  on the Schedule calendar on the correct date.
+Feature: Schedule, run, and record a therapy session
+  A clinician can create a new therapy session for a patient from the
+  Sessions page, open it into the Session Workspace, start the session,
+  collect data for treatment goals and challenging behaviours, and then
+  end (check out of) the session.
 
   Background:
     Given I am logged in as a clinician
+    And I navigate to the Sessions page
 
-  # ── Navigate ──
-  Scenario: Navigate to Sessions page
-    When I click Sessions in the left navigation
-    Then I see the Sessions page with Add Session button
-
-  # ── Create Session ──
-  Scenario: Open Add Session popup
+  # ── Create ──
+  Scenario: Add a new session for Demo Patient 2 on a future date
     When I click Add Session
-    Then the session scheduling popup opens with title, patient, date, time, type, duration, and CPT code fields
+    And I enter a session title
+    And I select the patient "Demo Patient 2"
+    And I set the date to today plus 10 days at a free time slot
+    And I click Save
+    Then the session is scheduled successfully
+    And no scheduling conflict error is shown
 
-  Scenario: Fill session title
-    When I enter a session title
-    Then the title field is populated
+  Scenario: The new session appears in the Sessions list
+    Then the Sessions count increases by one
 
-  Scenario: Select a patient
-    When I click Select a patient and choose a patient
-    Then the patient is attached to the session
+  # ── Open / Go to Session ──
+  Scenario: Open the session and go to the Session Workspace
+    When I open the scheduled session for "Demo Patient 2"
+    Then I land on the Session Workspace
+    And I see the "Tap to Start Session" / "Check In & Start" control
 
-  Scenario: Select session type and duration
-    When I select Session type and 1h duration
-    Then the session type and duration are set
+  # ── Run the session ──
+  Scenario: Start the session and collect data for the Handwashing goal
+    When I click Check In & Start
+    Then the session status becomes "In Progress"
+    When I record a Task Analysis trial on the "Handwashing — full routine" goal
+    Then the goal data is recorded
 
-  Scenario: Select CPT code
-    When I select CPT code 97153
-    Then the CPT code is selected
+  Scenario: Record a challenging behaviour
+    When I record a "Tantrum" behaviour occurrence
+    Then the Tantrum counter increases
 
-  Scenario: Save the session
-    When I click Save
-    Then the session is saved successfully
-    And no error toast is shown
-
-  # ── Verify on Schedule Calendar ──
-  Scenario: Navigate to Schedule
-    When I click Schedule in the left navigation
-    Then I see the calendar view
-
-  Scenario: Verify session on calendar
-    When I navigate to the session date on the calendar
-    Then I see the session title on the calendar for that date
+  # ── Stop ──
+  Scenario: End the session and check out
+    When I open More options and choose "End & check out"
+    And I confirm the end-of-session review
+    Then the session is no longer In Progress

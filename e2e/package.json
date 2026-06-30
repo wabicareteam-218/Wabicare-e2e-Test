@@ -20,7 +20,10 @@
     "test:intake": "playwright test tests/intake-fill.spec.ts --project=chromium",
     "test:intake:headed": "playwright test tests/intake-fill.spec.ts --project=chromium --headed",
     "test:all": "playwright test tests/login.spec.ts tests/intake-fill.spec.ts --project=chromium",
-    "test:all:headed": "playwright test tests/login.spec.ts tests/intake-fill.spec.ts --project=chromium --headed"
+    "test:all:headed": "playwright test tests/login.spec.ts tests/intake-fill.spec.ts --project=chromium --headed",
+    "test:sessions": "playwright test tests/sessions.spec.ts --project=chromium",
+    "test:sessions:headed": "playwright test tests/sessions.spec.ts --project=chromium --headed",
+    "auth:refresh": "playwright test tests/refresh-auth.smoke.spec.ts --project=smoke"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
