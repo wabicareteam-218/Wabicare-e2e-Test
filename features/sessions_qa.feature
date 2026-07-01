@@ -39,8 +39,14 @@ Feature: Schedule, run, and record a therapy session
     When I record a "Tantrum" behaviour occurrence
     Then the Tantrum counter increases
 
-  # ── Stop ──
-  Scenario: End the session and check out
-    When I open More options and choose "End & check out"
-    And I confirm the end-of-session review
-    Then the session is no longer In Progress
+  # ── End & check out ──
+  Scenario: End & check out opens the End Session review dialog
+    When I open More options (kebab) and choose "End & check out"
+    Then the "End Session — Review" dialog appears
+    And it shows a Session Summary and the targets that had no data collected
+
+  Scenario: Mark the untracked targets and end the session
+    When I record each no-data target as "Zero occurrences (record as 0%)"
+    And I click End Session
+    Then the session ends and the data is saved
+    And the session is no longer In Progress

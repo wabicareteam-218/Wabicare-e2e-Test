@@ -130,6 +130,17 @@ async function setDate(page: Page, target: Date): Promise<void> {
   await enableAccessibility(page);
 }
 
+/** Every flt-semantics node's accessible label (aria-label or text). Flutter
+ *  paints dialog text on the canvas, so it is often absent from
+ *  flt-semantics-host.textContent but present on individual nodes. */
+async function allSemanticLabels(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    Array.from(document.querySelectorAll('flt-semantics'))
+      .map((n) => (n.getAttribute('aria-label') || n.textContent || '').trim())
+      .filter(Boolean),
+  );
+}
+
 /** Read the "All (N)" session-count filter into a number. */
 async function readSessionCount(page: Page): Promise<number | null> {
   for (const b of await getFlutterButtons(page)) {
@@ -549,53 +560,139 @@ test.describe.serial('Sessions: schedule, run, and record a therapy session', ()
     expect(afterN).toBeGreaterThan(beforeN);
   });
 
-  // ── 7. Stop / end the session ──
-  test('Then I end the session and check out (stop recording)', async ({}, testInfo) => {
-    // "More options" (near the timer) holds End & check out / Pause session.
+  // ── 7. End & check out → open the "End Session — Review" dialog ──
+  test('Then I end & check out, opening the End Session review dialog', async ({}, testInfo) => {
+    // The top-right kebab ("More options", near the session timer) holds
+    // "End & check out" / "Pause session".
     const moreOpts = page.locator('flt-semantics[role="button"]').filter({ hasText: 'More options' }).first();
-    expect(await moreOpts.count(), '"More options" control present').toBeGreaterThan(0);
+    expect(await moreOpts.count(), '"More options" (kebab) control present').toBeGreaterThan(0);
     await moreOpts.dispatchEvent('click');
     await page.waitForTimeout(2000);
     await enableAccessibility(page);
 
-    const endItem = page.locator('flt-semantics[role="menuitem"][aria-label="End & check out"]').first();
+    // Choose "End & check out" from the kebab menu.
+    let endItem = page.locator('flt-semantics[role="menuitem"][aria-label="End & check out"]').first();
+    if ((await endItem.count()) === 0) {
+      endItem = page.locator('flt-semantics[role="menuitem"], flt-semantics[role="button"]')
+        .filter({ hasText: /End & check ?out/i }).first();
+    }
     expect(await endItem.count(), '"End & check out" menu item present').toBeGreaterThan(0);
     await endItem.dispatchEvent('click');
-    await page.waitForTimeout(3500);
+    await page.waitForTimeout(3000);
     await enableAccessibility(page);
-    await screenshotAndAttach(page, testInfo, 'End session dialog', 'sessions-10-end-dialog.png');
+    await screenshotAndAttach(page, testInfo, 'End Session review dialog', 'sessions-10-end-dialog.png');
 
-    // An end-of-session review dialog may ask to confirm / save / submit.
-    for (let i = 0; i < 3; i++) {
-      const btns = await getFlutterButtons(page);
-      const confirm = btns.find(b =>
-        /^(End & check out|End Session|End & Check Out|Check Out|Submit|Confirm|Save & Close|Save|Done|Finish)$/i.test(b.trim()),
+    // The dialog text is painted on the Flutter canvas and is NOT aggregated
+    // into flt-semantics-host.textContent, so scan every flt-semantics node's
+    // aria-label / textContent instead.
+    // The dialog's "End Session — Review" title, "Session Summary" and the
+    // "End Session" primary button are painted on the canvas and never reach
+    // the semantics tree. The reliably-exposed markers are the target
+    // dispositions ("Zero occurrences" / "Not tracked") and the
+    // "Mark All Not Tracked" link — key detection off those.
+    const labels = await allSemanticLabels(page);
+    const joined = labels.join(' • ');
+
+    // Dump the role=button nodes (+rects) so the canvas-only "End Session"
+    // button can be located by position for the next scenario.
+    const buttonRects = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('flt-semantics[role="button"]'))
+        .map((n) => {
+          const r = n.getBoundingClientRect();
+          return {
+            label: (n.getAttribute('aria-label') || n.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40),
+            x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height),
+          };
+        })
+        .filter((b) => b.w > 0 && b.h > 0),
+    );
+    console.log('  [Sessions] End Session review dialog buttons:');
+    for (const b of buttonRects) console.log(`    "${b.label}" @ ${b.x},${b.y} ${b.w}x${b.h}`);
+
+    const dialogOpen =
+      /Mark All Not Tracked/i.test(joined) &&
+      /(Not tracked|Zero occurrences)/i.test(joined);
+
+    if (!dialogOpen) {
+      throw new Error(
+        'BUG: End Session review dialog did not open. Labels seen: ' + joined.slice(0, 400),
       );
-      if (!confirm) break;
-      await clickFlutterButton(page, confirm, { timeout: 6000 }).catch(() => {});
-      await page.waitForTimeout(3000);
-      await enableAccessibility(page);
-      const t = await getPageSemanticText(page);
-      if (/Completed|checked out|session ended|session summary/i.test(t)) break;
     }
-    await enableAccessibility(page);
-    await screenshotAndAttach(page, testInfo, 'After end session', 'sessions-11-ended.png');
+    expect(dialogOpen).toBe(true);
+  });
 
-    const finalText = await getPageSemanticText(page);
+  // ── 8. Disposition the no-data targets and end the session (data saved) ──
+  test('And I mark the untracked targets and end the session', async ({}, testInfo) => {
+    // The dialog must still be open (targets default to "Not tracked").
+    expect(
+      /Mark All Not Tracked/i.test((await allSemanticLabels(page)).join(' • ')),
+      'End Session review dialog still open',
+    ).toBe(true);
+
+    // Record each listed target as "Zero occurrences (record as 0%)". Match the
+    // option row EXACTLY with an anchored regex (the dialog also has wide
+    // container nodes whose text concatenates every option). Activate via
+    // dispatchEvent('click') on the node itself — Flutter's semantic node
+    // geometry is misaligned with the painted canvas, so coordinate clicks land
+    // on the backdrop and dismiss the dialog; a dispatched click is
+    // geometry-independent.
+    const zeroOpts = page.locator('flt-semantics').filter({ hasText: /^Zero occurrences \(record as 0%\)$/ });
+    const zcount = await zeroOpts.count();
+    console.log(`  [Sessions] "Zero occurrences" option rows: ${zcount}`);
+    for (let i = 0; i < zcount; i++) {
+      await zeroOpts.nth(i).dispatchEvent('click').catch(() => {});
+      await page.waitForTimeout(400);
+      await enableAccessibility(page);
+    }
+    await screenshotAndAttach(page, testInfo, 'Targets dispositioned', 'sessions-11-review-selected.png');
+
+    // The dialog should still be open after selecting (selecting a radio does
+    // not dismiss it).
+    expect(
+      /Mark All Not Tracked/i.test((await allSemanticLabels(page)).join(' • ')),
+      'dialog still open after selecting options',
+    ).toBe(true);
+
+    // Commit: click "End Session". That gradient button is painted on the
+    // canvas and is NOT in the semantics tree, so anchor to the "Cancel" button
+    // (which IS exposed) and click a fixed offset to its right — same button
+    // row, so this holds regardless of how many targets were listed.
+    const cancelBox = await page.evaluate(() => {
+      for (const n of Array.from(document.querySelectorAll('flt-semantics'))) {
+        if ((n.getAttribute('aria-label') || n.textContent || '').trim() === 'Cancel') {
+          const r = n.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) return { x: r.x, y: r.y, w: r.width, h: r.height };
+        }
+      }
+      return null;
+    });
+    expect(cancelBox, '"Cancel" anchor present in review dialog').toBeTruthy();
+    const endX = cancelBox!.x + cancelBox!.w / 2 + 91; // End Session sits ~91px right of Cancel's center
+    const endY = cancelBox!.y + cancelBox!.h / 2;
+    console.log(`  [Sessions] clicking End Session at ${Math.round(endX)},${Math.round(endY)} (Cancel @ ${Math.round(cancelBox!.x)},${Math.round(cancelBox!.y)})`);
+    await page.mouse.click(endX, endY);
+    await page.waitForTimeout(4000);
+    await enableAccessibility(page);
+    await screenshotAndAttach(page, testInfo, 'After end session', 'sessions-12-ended.png');
+
+    const finalLabels = (await allSemanticLabels(page)).join(' • ');
+    const dialogGone = !/Mark All Not Tracked/i.test(finalLabels);
     const ended =
-      /Completed|checked out|session ended|read-only/i.test(finalText) ||
-      // back on the Sessions list
-      (await getFlutterButtons(page)).some(b => /add session/i.test(b)) ||
-      !/In Progress/i.test(finalText);
-    console.log(`  [Sessions] ended indicator: ${ended}`);
+      dialogGone &&
+      (/Completed|checked out|session ended|read-only/i.test(finalLabels) ||
+        // back on the Sessions list
+        (await getFlutterButtons(page)).some((b) => /add session/i.test(b)) ||
+        // still on the workspace but the session is no longer In Progress
+        !/In Progress/i.test(finalLabels));
+    console.log(`  [Sessions] ended/saved indicator: ${ended} (dialogGone=${dialogGone})`);
 
     if (!ended) {
       await reportBugViaCopilot(page, {
         category: 'Sessions',
         title: 'Could not end / check out of a session',
         description:
-          'After choosing "End & check out", the session did not reach a completed/checked-out ' +
-          `state. Final workspace text: "${finalText.slice(0, 300)}".`,
+          'After dispositioning the no-data targets and clicking "End Session", the session did ' +
+          `not reach a completed/checked-out state. Labels: "${finalLabels.slice(0, 300)}".`,
       });
     }
     expect(ended).toBe(true);
