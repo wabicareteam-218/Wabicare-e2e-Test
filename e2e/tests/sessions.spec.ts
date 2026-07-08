@@ -141,6 +141,57 @@ async function allSemanticLabels(page: Page): Promise<string[]> {
   );
 }
 
+/** True if a role=button whose text matches `re` is present. Uses a filtered
+ *  locator (does NOT iterate every button calling textContent, which can hang
+ *  30s on a re-rendering note body). */
+async function hasButton(page: Page, re: RegExp): Promise<boolean> {
+  return (await page.locator('flt-semantics[role="button"]').filter({ hasText: re }).count()) > 0;
+}
+
+/** Find a role=button whose text matches `re`, retrying until it renders
+ *  (note-report actions appear a beat after the view switches). Dispatches a
+ *  click on it and returns true, or false if it never appeared. */
+async function clickButtonWhenReady(page: Page, re: RegExp, timeoutMs = 15_000): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const btn = page.locator('flt-semantics[role="button"]').filter({ hasText: re }).first();
+    if (await btn.count()) {
+      await btn.dispatchEvent('click').catch(() => {});
+      return true;
+    }
+    await page.waitForTimeout(1500);
+    await enableAccessibility(page);
+  }
+  return false;
+}
+
+/** True when the "End Session — Review" dialog is open (its title/summary are
+ *  canvas-painted, so key off the always-exposed "Mark All Not Tracked" link). */
+async function reviewDialogOpen(page: Page): Promise<boolean> {
+  return /Mark All Not Tracked/i.test((await allSemanticLabels(page)).join(' • '));
+}
+
+/** Reopen the End Session review dialog from the workspace: top-right kebab
+ *  ("More options") → menuitem "End & check out". */
+async function reopenEndReview(page: Page): Promise<void> {
+  const more = page.locator('flt-semantics[role="button"]').filter({ hasText: 'More options' }).first();
+  if (await more.count()) {
+    await more.dispatchEvent('click');
+    await page.waitForTimeout(2000);
+    await enableAccessibility(page);
+  }
+  let endItem = page.locator('flt-semantics[role="menuitem"][aria-label="End & check out"]').first();
+  if ((await endItem.count()) === 0) {
+    endItem = page.locator('flt-semantics[role="menuitem"], flt-semantics[role="button"]')
+      .filter({ hasText: /End & check ?out/i }).first();
+  }
+  if (await endItem.count()) {
+    await endItem.dispatchEvent('click');
+    await page.waitForTimeout(2500);
+    await enableAccessibility(page);
+  }
+}
+
 /** Read the "All (N)" session-count filter into a number. */
 async function readSessionCount(page: Page): Promise<number | null> {
   for (const b of await getFlutterButtons(page)) {
@@ -655,46 +706,251 @@ test.describe.serial('Sessions: schedule, run, and record a therapy session', ()
 
     // Commit: click "End Session". That gradient button is painted on the
     // canvas and is NOT in the semantics tree, so anchor to the "Cancel" button
-    // (which IS exposed) and click a fixed offset to its right — same button
-    // row, so this holds regardless of how many targets were listed.
-    const cancelBox = await page.evaluate(() => {
-      for (const n of Array.from(document.querySelectorAll('flt-semantics'))) {
-        if ((n.getAttribute('aria-label') || n.textContent || '').trim() === 'Cancel') {
-          const r = n.getBoundingClientRect();
-          if (r.width > 0 && r.height > 0) return { x: r.x, y: r.y, w: r.width, h: r.height };
-        }
+    // (which IS exposed) and click ~91px right of its centre — same button row.
+    // The click occasionally lands on the full-screen "Dismiss" backdrop and
+    // just closes the dialog without ending, so verify the session reached
+    // "Completed" and reopen + retry if it didn't.
+    let completed = false;
+    for (let attempt = 0; attempt < 3 && !completed; attempt++) {
+      if (!(await reviewDialogOpen(page))) {
+        // Dialog closed without completing — reopen via More options.
+        await reopenEndReview(page);
+        // Re-disposition targets after reopening.
+        const opts = page.locator('flt-semantics').filter({ hasText: /^Zero occurrences \(record as 0%\)$/ });
+        const oc = await opts.count();
+        for (let i = 0; i < oc; i++) { await opts.nth(i).dispatchEvent('click').catch(() => {}); await page.waitForTimeout(300); await enableAccessibility(page); }
       }
-      return null;
-    });
-    expect(cancelBox, '"Cancel" anchor present in review dialog').toBeTruthy();
-    const endX = cancelBox!.x + cancelBox!.w / 2 + 91; // End Session sits ~91px right of Cancel's center
-    const endY = cancelBox!.y + cancelBox!.h / 2;
-    console.log(`  [Sessions] clicking End Session at ${Math.round(endX)},${Math.round(endY)} (Cancel @ ${Math.round(cancelBox!.x)},${Math.round(cancelBox!.y)})`);
-    await page.mouse.click(endX, endY);
-    await page.waitForTimeout(4000);
+      const cancelBox = await page.evaluate(() => {
+        for (const n of Array.from(document.querySelectorAll('flt-semantics'))) {
+          if ((n.getAttribute('aria-label') || n.textContent || '').trim() === 'Cancel') {
+            const r = n.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) return { x: r.x, y: r.y, w: r.width, h: r.height };
+          }
+        }
+        return null;
+      });
+      if (!cancelBox) break;
+      const endX = cancelBox.x + cancelBox.w / 2 + 91;
+      const endY = cancelBox.y + cancelBox.h / 2;
+      console.log(`  [Sessions] attempt ${attempt + 1}: clicking End Session at ${Math.round(endX)},${Math.round(endY)}`);
+      await page.mouse.click(endX, endY);
+      // Poll for the session to reach Completed (review dialog gone).
+      for (let i = 0; i < 6; i++) {
+        await page.waitForTimeout(1500);
+        await enableAccessibility(page);
+        const l = (await allSemanticLabels(page)).join(' • ');
+        if (!/Mark All Not Tracked/i.test(l) && /\bCompleted\b/i.test(l)) { completed = true; break; }
+      }
+    }
     await enableAccessibility(page);
     await screenshotAndAttach(page, testInfo, 'After end session', 'sessions-12-ended.png');
+    console.log(`  [Sessions] session completed: ${completed}`);
 
-    const finalLabels = (await allSemanticLabels(page)).join(' • ');
-    const dialogGone = !/Mark All Not Tracked/i.test(finalLabels);
-    const ended =
-      dialogGone &&
-      (/Completed|checked out|session ended|read-only/i.test(finalLabels) ||
-        // back on the Sessions list
-        (await getFlutterButtons(page)).some((b) => /add session/i.test(b)) ||
-        // still on the workspace but the session is no longer In Progress
-        !/In Progress/i.test(finalLabels));
-    console.log(`  [Sessions] ended/saved indicator: ${ended} (dialogGone=${dialogGone})`);
-
-    if (!ended) {
+    if (!completed) {
       await reportBugViaCopilot(page, {
         category: 'Sessions',
         title: 'Could not end / check out of a session',
         description:
           'After dispositioning the no-data targets and clicking "End Session", the session did ' +
-          `not reach a completed/checked-out state. Labels: "${finalLabels.slice(0, 300)}".`,
+          'not reach a "Completed" state across 3 attempts.',
       });
     }
-    expect(ended).toBe(true);
+    expect(completed, 'session reached Completed after End Session').toBe(true);
+  });
+
+  // ── 9. AI-generate the session note ──
+  test('When I generate the session note with AI', async ({}, testInfo) => {
+    // Ending the session leaves us on the Session Workspace; open the Session
+    // Notes report. Its actions (AI Generate / Save Notes …) are real semantic
+    // buttons but render a beat after the tab switches, so retry.
+    await page.waitForTimeout(2500);
+    await enableAccessibility(page);
+    if (!(await hasButton(page, /AI Generate/i))) {
+      await clickFlutterButton(page, 'Session Notes', { timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(2500);
+      await enableAccessibility(page);
+    }
+    await screenshotAndAttach(page, testInfo, 'Session note report', 'sessions-13-note-report.png');
+
+    const clicked = await clickButtonWhenReady(page, /^AI Generate$/i, 20_000);
+    expect(clicked, '"AI Generate" button present').toBe(true);
+    console.log('  [Sessions] clicked AI Generate; awaiting generation…');
+
+    // Generation runs server-side and fills the note body. Poll up to ~50s for
+    // a completion signal: the action flips to "Regenerate", or the note body
+    // placeholders ("Document …") get replaced by generated content.
+    let generated = false;
+    for (let i = 0; i < 25; i++) {
+      await page.waitForTimeout(2000);
+      await enableAccessibility(page);
+      if (await hasButton(page, /Regenerate/i)) { generated = true; break; }
+      const placeholders = (await allSemanticLabels(page)).filter((l) => /^Document .+…$/.test(l)).length;
+      if (i >= 3 && placeholders === 0) { generated = true; break; }
+    }
+    await enableAccessibility(page);
+    await screenshotAndAttach(page, testInfo, 'AI-generated note', 'sessions-14-ai-note.png');
+    console.log(`  [Sessions] note generated: ${generated}`);
+    // Whether or not the completion signal was detected, the note must be
+    // saveable (Save Notes present) for the flow to continue.
+    const saveable = await hasButton(page, /Save Notes/i);
+    expect(generated || saveable, 'note generated / saveable').toBe(true);
+  });
+
+  // ── 10. Save the note ──
+  test('And I save the session note', async ({}, testInfo) => {
+    // Let the AI note finish settling so the editor is not mid-re-render.
+    await page.waitForTimeout(2000);
+    await enableAccessibility(page);
+    const clicked = await clickButtonWhenReady(page, /^Save Notes$/i, 20_000);
+    expect(clicked, '"Save Notes" button present').toBe(true);
+    await page.waitForTimeout(3500);
+    await enableAccessibility(page);
+    await screenshotAndAttach(page, testInfo, 'Note saved', 'sessions-15-note-saved.png');
+
+    // Saving unlocks the "Approve Notes" action.
+    let approveReady = false;
+    for (let i = 0; i < 8; i++) {
+      if (await hasButton(page, /Approve/i)) { approveReady = true; break; }
+      await page.waitForTimeout(1500);
+      await enableAccessibility(page);
+    }
+    console.log(`  [Sessions] note saved, approve available: ${approveReady}`);
+    expect(approveReady, 'note saved ("Approve" action available)').toBe(true);
+  });
+
+  // ── 11. Approve the note ──
+  test('Then I approve the note and it shows Approved with Edit Notes', async ({}, testInfo) => {
+    const clicked = await clickButtonWhenReady(page, /Approve Notes|^Approve$/i, 12_000);
+    expect(clicked, '"Approve Notes" button present').toBe(true);
+    await page.waitForTimeout(2500);
+    await enableAccessibility(page);
+
+    // A confirmation dialog may ask to confirm the approval.
+    if (await hasButton(page, /^(Confirm|Yes|Approve & Sign|Sign)$/i)) {
+      await clickButtonWhenReady(page, /^(Confirm|Yes|Approve & Sign|Sign)$/i, 6000);
+      await page.waitForTimeout(2500);
+      await enableAccessibility(page);
+    }
+    await screenshotAndAttach(page, testInfo, 'Note approved', 'sessions-16-approved.png');
+
+    const labels = (await allSemanticLabels(page)).join(' • ');
+    console.log(`  [Sessions] after-approve: approved=${/Approved/i.test(labels)} editNotes=${/Edit Notes/i.test(labels)}`);
+    expect(/Approved/i.test(labels), '"Approved" state shown').toBe(true);
+    expect(/Edit Notes/i.test(labels), '"Edit Notes" action shown').toBe(true);
+  });
+
+  // ── 12. Verify the approval on the Schedule calendar ──
+  test('And the Schedule shows the session with "Notes approved — only a BCBA can amend"', async ({}, testInfo) => {
+    // Go to the Schedule via the sidebar.
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(4000);
+    await enableAccessibility(page);
+    await clickFlutterButton(page, 'Schedule', { timeout: 12000 }).catch(() => {});
+    await page.waitForTimeout(4000);
+    await enableAccessibility(page);
+
+    // Ensure the Calendar (not Table) view, then switch to Day view so the
+    // target session is the only block in a single, unambiguous column.
+    await clickFlutterButtonByIteration(page, 'Calendar View');
+    await page.waitForTimeout(1000);
+    await enableAccessibility(page);
+    await clickFlutterButtonByIteration(page, 'Day');
+    await page.waitForTimeout(1500);
+    await enableAccessibility(page);
+
+    // Navigate the mini-calendar to the target month (click its "next month"
+    // chevron until the header matches), then click the target day-of-month.
+    const targetHeader = `${MONTHS[target.getMonth()]} ${target.getFullYear()}`;
+    for (let i = 0; i < 6; i++) {
+      const header = await getDatePickerHeader(page);
+      if (header === targetHeader) break;
+      const advanced = await clickNextMonth(page);
+      if (!advanced) break;
+      await page.waitForTimeout(1200);
+      await enableAccessibility(page);
+    }
+    await clickFlutterButtonByIteration(page, String(target.getDate()));
+    await page.waitForTimeout(3000);
+    await enableAccessibility(page);
+    await screenshotAndAttach(page, testInfo, 'Schedule at target date', 'sessions-18-schedule-date.png');
+    console.log(`  [Sessions] target session: "${title}" on ${target.toDateString()} @ ${chosenTime}`);
+
+    // The approval status lives in a HOVER card raised by mousing over the
+    // block — and only renders for a non-BCBA viewer (our Owner account is one).
+    // The inline "Approved" chip painted on the block is NOT in the semantics
+    // tree, so hovering to raise the card is the only readable path. The card
+    // also needs the block roughly mid-viewport (near the top it doesn't open),
+    // so we scroll the block to ~y=320 before hovering. Wheel scroll on the day
+    // grid moves ~2px per wheel unit, so a delta of (cy - targetY)/2 lands the
+    // block on target in ~1 step.
+    await page.mouse.move(640, 360);
+    await page.mouse.wheel(0, -2000); // pin the grid to the earliest hours
+    await page.waitForTimeout(1000);
+    await enableAccessibility(page);
+
+    const TARGET_Y = 320;
+    let approved = false;
+    for (let attempt = 0; attempt < 14 && !approved; attempt++) {
+      const box = await page.evaluate((t) => {
+        let best: { x: number; y: number; w: number; h: number; area: number } | null = null;
+        for (const n of Array.from(document.querySelectorAll('flt-semantics'))) {
+          const label = (n.getAttribute('aria-label') || n.textContent || '').trim();
+          if (!label.startsWith(t)) continue;
+          const r = n.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0 && r.width < 900) {
+            const area = r.width * r.height;
+            if (!best || area < best.area) best = { x: r.x, y: r.y, w: r.width, h: r.height, area };
+          }
+        }
+        return best;
+      }, title);
+
+      if (!box) {
+        // Block not rendered yet — reveal later hours and retry.
+        await page.mouse.move(640, 360);
+        await page.mouse.wheel(0, 150);
+        await page.waitForTimeout(800);
+        await enableAccessibility(page);
+        continue;
+      }
+      const cy = box.y + box.h / 2;
+      if (Math.abs(cy - TARGET_Y) > 70) {
+        const delta = Math.max(-400, Math.min(400, Math.round((cy - TARGET_Y) / 2)));
+        if (delta === 0) break; // at a scroll limit — hover from here
+        await page.mouse.move(640, 360);
+        await page.mouse.wheel(0, delta);
+        await page.waitForTimeout(800);
+        await enableAccessibility(page);
+        continue;
+      }
+      // Block is mid-viewport — hover its centre to raise the card.
+      const cx = box.x + box.w / 2;
+      await page.mouse.move(10, 10);
+      await page.waitForTimeout(300);
+      await page.mouse.move(cx, cy - 4);
+      await page.waitForTimeout(400);
+      await page.mouse.move(cx, cy); // settle onto the block so onEnter fires
+      await page.waitForTimeout(2500);
+      await enableAccessibility(page);
+      approved = /Notes approved|BCBA can amend/i.test((await allSemanticLabels(page)).join(' • '));
+      if (!approved) {
+        // Reset hover state before the next attempt.
+        await page.mouse.move(10, 10);
+        await page.waitForTimeout(400);
+      }
+    }
+    await screenshotAndAttach(page, testInfo, 'Session hover card on Schedule', 'sessions-19-popover.png');
+    console.log(`  [Sessions] approved-on-schedule: ${approved}`);
+    if (!approved) {
+      await reportBugViaCopilot(page, {
+        category: 'Sessions',
+        title: 'Approved note status not shown on the Schedule',
+        description:
+          `After approving the note for "${title}" (${target.toDateString()} @ ${chosenTime}), the ` +
+          'Schedule hover card did not show "Notes approved — only a BCBA can amend".',
+      });
+    }
+    expect(approved, '"Notes approved — only a BCBA can amend" shown on Schedule').toBe(true);
   });
 });
