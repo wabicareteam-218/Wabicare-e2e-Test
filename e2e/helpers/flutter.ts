@@ -63,6 +63,69 @@ export async function getInputCount(page: Page): Promise<number> {
   return page.locator('flt-semantics-host input').count();
 }
 
+/**
+ * Fill a Flutter text field addressed by its placeholder (Flutter mirrors the
+ * placeholder into the input's aria-label). Far more robust than indexing,
+ * which drifts whenever a dropdown/date field is added between text inputs.
+ * `nth` disambiguates repeated placeholders (e.g. "Doe" for patient vs guardian
+ * last name). Returns false if the field isn't present.
+ */
+export async function fillByPlaceholder(
+  page: Page,
+  placeholder: string,
+  value: string,
+  nth = 0,
+): Promise<boolean> {
+  const all = page.locator(
+    `flt-semantics-host input[aria-label="${placeholder.replace(/"/g, '\\"')}"]`,
+  );
+  // nth === -1 selects the last match (e.g. guardian "Doe" vs patient "Doe").
+  const input = nth < 0 ? all.last() : all.nth(nth);
+  if (!(await input.count())) return false;
+  await input.scrollIntoViewIfNeeded().catch(() => {});
+  await input.focus();
+  await page.waitForTimeout(150);
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Delete');
+  await page.keyboard.type(value, { delay: 25 });
+  await page.waitForTimeout(200);
+  return true;
+}
+
+/**
+ * Open a Flutter dropdown by its trigger text (e.g. "Select gender") and pick
+ * an option. Options render either as role=menuitem (single-select dropdowns)
+ * or role=button (multi-select chips like Diagnoses), so we match both.
+ * Returns true if the option was clicked.
+ */
+export async function selectDropdownOption(
+  page: Page,
+  triggerText: string | RegExp,
+  optionText: string | RegExp,
+): Promise<boolean> {
+  const trigger = page
+    .locator('flt-semantics[role="button"]')
+    .filter({ hasText: triggerText })
+    .first();
+  if (!(await trigger.count())) return false;
+  await trigger.scrollIntoViewIfNeeded().catch(() => {});
+  await trigger.dispatchEvent('click');
+  await page.waitForTimeout(1200);
+  await enableAccessibility(page);
+  const option = page
+    .locator('flt-semantics[role="menuitem"], flt-semantics[role="button"]')
+    .filter({ hasText: optionText })
+    .first();
+  if (!(await option.count())) {
+    await page.keyboard.press('Escape').catch(() => {});
+    return false;
+  }
+  await option.dispatchEvent('click');
+  await page.waitForTimeout(600);
+  await enableAccessibility(page);
+  return true;
+}
+
 export async function getPageSemanticText(page: Page): Promise<string> {
   return page.evaluate(() => {
     const host = document.querySelector('flt-semantics-host');

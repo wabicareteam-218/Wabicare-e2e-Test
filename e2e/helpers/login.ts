@@ -77,10 +77,36 @@ export async function login(
   console.log('  → [Login] Step 5: Filling password…');
   const passwordField = page.getByPlaceholder('Password');
   await passwordField.waitFor({ state: 'visible', timeout: 10000 });
-  await passwordField.fill(password);
+  // Fill, then confirm the field holds the EXACT password. A truncated value
+  // (e.g. a trailing "#" dropped by dotenv's inline-comment parsing) silently
+  // submits wrong credentials, so re-type until the field matches.
+  for (let i = 0; i < 3; i++) {
+    await passwordField.fill('');
+    await passwordField.fill(password);
+    if ((await passwordField.inputValue()) === password) break;
+    console.log('  → [Login] password field mismatch, retrying…');
+    await page.waitForTimeout(300);
+  }
+  if ((await passwordField.inputValue()) !== password) {
+    throw new Error(
+      'Password field did not accept the full password — check that ' +
+      'E2E_LOGIN_PASSWORD is quoted in .env (a trailing "#" is otherwise ' +
+      'stripped by dotenv as an inline comment).',
+    );
+  }
 
   console.log('  → [Login] Step 6: Clicking Sign in…');
   await page.getByRole('button', { name: 'Sign in' }).click();
+
+  // Surface a bad-credentials rejection immediately instead of timing out 30s
+  // later at the redirect step.
+  const credError = page.getByText(
+    /incorrect|isn't correct|does not match|doesn't match|couldn't find an account|invalid/i,
+  );
+  if (await credError.first().isVisible({ timeout: 4000 }).catch(() => false)) {
+    const msg = (await credError.first().textContent().catch(() => '')) || 'credentials rejected';
+    throw new Error(`CIAM rejected the credentials: "${msg.trim()}"`);
+  }
 
   console.log('  → [Login] Step 7: Handling "Stay signed in?" prompt…');
   try {
