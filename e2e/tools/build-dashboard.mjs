@@ -90,7 +90,10 @@ function routeTestToFeature(specFile, title) {
 }
 
 const executedByFeature = {}; // featureName -> [ {title,status,duration,shots:[{name,rel}],error} ]
+const bddResults = {}; // "featureTitle :: scenarioName" -> {status,shots,error,duration}
 let runMeta = { present: false, total: 0, passed: 0, failed: 0, when: '' };
+let bddMeta = { passed: 0, failed: 0, pending: 0 };
+const norm = (s) => String(s).replace(/\s+/g, ' ').trim().toLowerCase();
 
 let shotCounter = 0;
 function copyShot(absPath) {
@@ -102,34 +105,50 @@ function copyShot(absPath) {
   } catch { return null; }
 }
 
-if (fs.existsSync(RESULTS_JSON)) {
-  const j = JSON.parse(fs.readFileSync(RESULTS_JSON, 'utf8'));
+function shotsOf(res) {
+  return (res.attachments || [])
+    .filter((a) => a.contentType === 'image/png')
+    .map((a) => ({ name: a.name || 'screenshot', rel: copyShot(a.path) }))
+    .filter((x) => x.rel);
+}
+function errOf(res) {
+  return (res.errors || []).map((e) => (e.message || '').replace(/\x1b\[[0-9;]*m/g, '')).join('\n').slice(0, 1400);
+}
+
+// One combined run (bespoke specs + BDD) → route per spec file.
+//   bespoke specs (login/intake/schedule/sessions) → executedByFeature
+//   bdd.spec.ts (Feature: … suites)               → per-scenario overlay
+for (const src of [RESULTS_JSON, path.join(ROOT, 'test-results', 'bdd-run.json')]) {
+  if (!fs.existsSync(src)) continue;
+  const j = JSON.parse(fs.readFileSync(src, 'utf8'));
   runMeta.present = true;
-  runMeta.when = j.stats?.startTime ? new Date(j.stats.startTime).toISOString().slice(0, 10) : '';
-  const walk = (ss) => {
+  if (!runMeta.when && j.stats?.startTime) runMeta.when = new Date(j.stats.startTime).toISOString().slice(0, 10);
+  const walk = (ss, featureTitle) => {
     for (const s of ss || []) {
+      const ft = (s.title || '').startsWith('Feature:') ? s.title.replace(/^Feature:\s*/, '') : featureTitle;
       for (const sp of s.specs || []) {
         const res = sp.tests?.[0]?.results?.[0];
         if (!res) continue;
         const specFile = (sp.file || s.title || '').split('/').pop();
-        const fname = routeTestToFeature(specFile, sp.title);
-        runMeta.total++;
-        const ok = sp.ok;
-        ok ? runMeta.passed++ : runMeta.failed++;
-        const shots = (res.attachments || [])
-          .filter((a) => a.contentType === 'image/png')
-          .map((a) => ({ name: a.name || 'screenshot', rel: copyShot(a.path) }))
-          .filter((x) => x.rel);
-        const errorText = (res.errors || []).map((e) => (e.message || '').replace(/\x1b\[[0-9;]*m/g, '')).join('\n').slice(0, 1200);
-        (executedByFeature[fname] ||= []).push({
-          title: sp.title, status: ok ? 'passed' : 'failed',
-          duration: Math.round((res.duration || 0)), shots, error: ok ? '' : errorText, spec: specFile,
-        });
+        if (specFile === 'bdd.spec.ts') {
+          const st = res.status === 'skipped' ? 'pending' : (sp.ok ? 'passed' : 'failed');
+          if (st === 'pending') bddMeta.pending++; else if (st === 'passed') bddMeta.passed++; else bddMeta.failed++;
+          bddResults[norm(ft) + ' :: ' + norm(sp.title)] = {
+            status: st, duration: Math.round(res.duration || 0),
+            shots: st === 'failed' ? shotsOf(res) : [], error: st === 'failed' ? errOf(res) : '',
+          };
+        } else {
+          runMeta.total++; sp.ok ? runMeta.passed++ : runMeta.failed++;
+          (executedByFeature[routeTestToFeature(specFile, sp.title)] ||= []).push({
+            title: sp.title, status: sp.ok ? 'passed' : 'failed',
+            duration: Math.round(res.duration || 0), shots: shotsOf(res), error: sp.ok ? '' : errOf(res), spec: specFile,
+          });
+        }
       }
-      walk(s.suites);
+      walk(s.suites, ft);
     }
   };
-  walk(j.suites);
+  walk(j.suites, '');
 }
 
 // ---- 3. Render HTML ---------------------------------------------------------
@@ -179,19 +198,31 @@ function featureBlocks() {
         <div class="body">${err}${stepsFromShots}</div></details>`;
     }).join('');
 
-    // drafted scenarios (from .feature)
+    // drafted scenarios (from .feature), overlaid with real BDD run status.
+    let bddPass = 0, bddFail = 0, bddPend = 0;
     const draftHtml = f.scenarios.map((sc) => {
       const tagsAttr = sc.tags.join(' ');
       const tagChips = sc.tags.map((t) => `<span class="tag ${t.slice(1)}">${t}</span>`).join('');
       const examples = sc.examples.length ? `<div class="examples"><div class="ex-h">Examples</div><div class="table">${sc.examples.map((r) => esc(r)).join('<br>')}</div></div>` : '';
-      return `<details class="scenario drafted" data-status="drafted" data-tags="${tagsAttr}">
-        <summary><span class="stat">📝</span> ${esc(sc.name)}${sc.outline ? ' <span class="chip">outline</span>' : ''} <span class="tags">${tagChips}</span></summary>
-        <div class="body">${renderSteps(sc.steps)}${examples}</div></details>`;
+      const r = bddResults[norm(f.title || f.name) + ' :: ' + norm(sc.name)];
+      let status = 'drafted', icon = '📝', extra = '', chip = '';
+      if (r) {
+        status = r.status;
+        if (status === 'passed') { icon = '✅'; bddPass++; chip = `<span class="chip auto">bdd · ${r.duration}ms</span>`; }
+        else if (status === 'failed') { icon = '❌'; bddFail++; chip = `<span class="chip fail">bdd failed</span>`;
+          extra = (r.error ? `<div class="error">${esc(r.error)}</div>` : '') + renderShots(r.shots); }
+        else { icon = '⏳'; bddPend++; chip = `<span class="chip">pending</span>`; }
+      }
+      return `<details class="scenario ${status}" data-status="${status}" data-tags="${tagsAttr}${status === 'failed' ? ' @failure' : ''}">
+        <summary><span class="stat">${icon}</span> ${esc(sc.name)}${sc.outline ? ' <span class="chip">outline</span>' : ''} ${chip}<span class="tags">${tagChips}</span></summary>
+        <div class="body">${renderSteps(sc.steps)}${examples}${extra}</div></details>`;
     }).join('');
 
-    const statusBadge = execs.length
-      ? (execFail ? `<span class="badge fail">${execPass}/${execs.length} passed</span>` : `<span class="badge pass">automated ${execPass}/${execs.length} ✅</span>`)
-      : `<span class="badge draft">drafted</span>`;
+    const totalPass = execPass + bddPass, totalRun = execs.length + bddPass + bddFail;
+    const statusBadge = (execFail + bddFail)
+      ? `<span class="badge fail">${totalPass}/${totalRun + bddPend} · ${execFail + bddFail} failing</span>`
+      : (totalRun ? `<span class="badge pass">${totalPass} passing${bddPend ? ` · ${bddPend} pending` : ''} ✅</span>`
+                  : `<span class="badge draft">drafted</span>`);
 
     return `<details class="feature" data-name="${esc(f.name)}">
       <summary>
@@ -248,7 +279,8 @@ details.scenario.passed .stat{filter:none}
 .tag{font-size:10px;padding:2px 7px;border-radius:999px;background:var(--card);color:var(--mut);border:1px solid var(--line)}
 .tag.negative{color:var(--red)}.tag.security{color:#ff9d4d}.tag.edge{color:var(--amb)}.tag.positive,.tag.smoke{color:var(--grn)}.tag.permission{color:var(--acc)}
 .chip{font-size:10px;padding:2px 7px;border-radius:6px;background:var(--card);color:var(--mut);border:1px solid var(--line)}
-.chip.auto{color:var(--acc)}
+.chip.auto{color:var(--acc)}.chip.fail{color:var(--red);border-color:var(--red)}
+details.scenario.pending{opacity:.72}details.scenario.passed>summary .stat{color:var(--grn)}
 .body{padding:6px 14px 12px;border-top:1px solid var(--line)}
 .step{padding:2px 0}.kw{display:inline-block;min-width:44px;font-weight:700;font-size:12px}
 .kw-given{color:var(--acc)}.kw-when{color:var(--amb)}.kw-then{color:var(--grn)}.kw-and{color:var(--mut)}
@@ -266,11 +298,12 @@ details.scenario.passed .stat{filter:none}
 <p class="sub">Feature → Scenario → Gherkin steps. Automated scenarios show the real last-run result with screenshots; drafted scenarios are specifications awaiting automation.${runMeta.when ? ' Last run: ' + runMeta.when + '.' : ''}</p>
 <div class="summary">
   <div class="kpi"><b>${features.length}</b><span>Features</span></div>
-  <div class="kpi"><b>${totalDrafted}</b><span>Drafted scenarios</span></div>
-  <div class="kpi pass"><b>${runMeta.passed}</b><span>Automated passed</span></div>
-  <div class="kpi ${runMeta.failed ? 'fail' : ''}"><b>${runMeta.failed}</b><span>Automated failed</span></div>
+  <div class="kpi"><b>${totalDrafted}</b><span>Total scenarios</span></div>
+  <div class="kpi pass"><b>${runMeta.passed + bddMeta.passed}</b><span>Passing</span></div>
+  <div class="kpi ${runMeta.failed + bddMeta.failed ? 'fail' : ''}"><b>${runMeta.failed + bddMeta.failed}</b><span>Failing</span></div>
+  <div class="kpi"><b>${bddMeta.pending}</b><span>Pending (not yet implemented)</span></div>
 </div>
-<p class="legend">✅ automated &amp; passed · ❌ automated &amp; failed (screenshot shown) · 📝 drafted (not executed)</p>
+<p class="legend">✅ passed · ❌ failed (error + screenshot shown) · ⏳ pending (step definitions not yet implemented) · 📝 drafted (runner has no result). The BDD runner (<code>npm run test:bdd</code>) executes the feature files; unimplemented steps mark a scenario pending so the suite stays green while coverage grows.</p>
 <div class="toolbar">
   <input id="q" placeholder="Search features, scenarios, steps…">
   <button class="btn" id="expand">Expand all</button>
