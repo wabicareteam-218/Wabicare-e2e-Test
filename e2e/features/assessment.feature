@@ -3,6 +3,18 @@ Feature: Patient Assessment workflow (Pre-Assessment → Meeting → Reporting)
   I want to run the 3-step assessment workflow for a patient
   So that a finalized assessment report drives the authorization + status lifecycle.
 
+  # ⚠️ NOT AUTOMATABLE AS DRAFTED — the "Assessment" patient tab is intentionally
+  # NOT exposed in the running app. Verified live (patient tabs = Profile /
+  # Intake Forms / Authorization / More; the More menu has no "Assessment") and
+  # in source: lib/features/clinic/intake/data/patient_tabs.dart:38 —
+  #   "'Assessment' (id 3) intentionally NOT listed — BCBAs run assessments via
+  #    the assessment SESSION TYPE, not the patient profile."
+  # These scenarios describe the assessment_panels.dart / assessment_report_panels.dart
+  # code, which exists in the repo but is unreachable through navigation. The real
+  # path is: book an "Assessment"-type appointment (covered by scheduling.feature),
+  # which runs as a session. Kept as a specification of the underlying panels; the
+  # BDD runner leaves every scenario pending (no reachable UI to drive).
+
   # Grounded in wabi-flutter-dev:
   #   assessment_panels.dart  (AssessmentChecklistPanel, PreAssessmentChecksPanel,
   #                            AssessmentMeetingPanel, AssessmentMeetingContentPanel)

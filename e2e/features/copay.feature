@@ -22,12 +22,13 @@ Feature: Patient Profile — Co-Pay Payment
     And the chips "Co-Pay Required" and "No Co-Pay" are visible
 
   # ── Required / None toggle ───────────────────────────────────────────────
+  # NOTE: corrected to the live app — the section opens on "Co-Pay Required"
+  # (amount + Payment Method shown by default), not "No Co-Pay" as the source
+  # panel's initial-state code suggested.
   @smoke @positive
-  Scenario: Default state is "No Co-Pay" with the emerald confirmation
-    Then the "No Co-Pay" chip is selected
-    And I see "No Co-Pay Required"
-    And I see "Patient's insurance covers 100% of the visit cost."
-    And no "Co-Pay Amount" input is shown
+  Scenario: Default state shows "Co-Pay Required" with the amount field
+    Then the "Co-Pay Required" chip is shown selected by default with the amount field
+    And I see "Payment Method"
 
   @positive
   Scenario: Selecting "Co-Pay Required" reveals amount and payment method

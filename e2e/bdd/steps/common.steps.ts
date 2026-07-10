@@ -35,7 +35,7 @@ const PLACEHOLDER: Record<string, string> = {
   'First Name': 'John', 'Last Name': 'Doe', 'Date of Birth': 'MM/DD/YYYY',
   'Phone Number': '(555) 123-4567', 'Email Address': 'guardian@email.com',
   'Insurance Provider': 'Blue Cross Blue Shield', 'Member ID': 'ABC123456789',
-  'Group Number': 'GRP001',
+  'Group Number': 'GRP001', 'Co-Pay Amount': '$25.00', 'Reason for Waiving': 'Enter reason...',
 };
 const GUARDIAN_PLACEHOLDER: Record<string, string> = { 'First Name': 'Jane', 'Last Name': 'Doe' };
 const DROPDOWN_TRIGGER: Record<string, string> = {
