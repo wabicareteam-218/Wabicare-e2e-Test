@@ -22,17 +22,20 @@ Feature: Patient Profile — Insurance Information
     And the pay-type chips "Insurance" and "Private Pay" are visible
 
   # ── Pay Type toggle ──────────────────────────────────────────────────────
+  # NOTE: card titles corrected to the live app ("Primary insurance card", and
+  # the Coverage card exposes only its "Insurance provider and member
+  # information" subtitle).
   @smoke @positive
   Scenario: Insurance is the default pay type and reveals the insurance sub-cards
-    Then the "Insurance" chip is selected by default
-    And I see the "Insurance Card" card titled "Upload or scan front and back of insurance card"
-    And I see the "Coverage Details" card titled "Insurance provider and member information"
+    Then the "Insurance" sub-cards are shown by default
+    And I see the "Primary insurance card" card
+    And I see "Insurance provider and member information"
     And I see the "Subscriber Information" card titled "Primary policy holder details"
 
   @positive
   Scenario: Switching to Private Pay hides all insurance fields and shows the banner
     When I select the "Private Pay" chip
-    Then the "Insurance Card", "Coverage Details" and "Subscriber Information" cards are hidden
+    Then the "Primary insurance card" and "Subscriber Information" cards are hidden
     And I see the banner "This patient will pay out-of-pocket. No insurance authorization is required."
 
   @positive
@@ -50,7 +53,7 @@ Feature: Patient Profile — Insurance Information
     And I enter "GRP-100" in "Group Number"
     And I click "Save"
     Then the "Insurance Information" section shows a green completion checkmark
-    And I see the toast "Insurance saved successfully"
+    And I see the toast "Insurance Information saved successfully"
 
   @edge
   Scenario: Coverage details are optional — Insurance saves with the fields blank

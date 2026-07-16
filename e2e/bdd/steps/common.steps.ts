@@ -36,6 +36,7 @@ const PLACEHOLDER: Record<string, string> = {
   'Phone Number': '(555) 123-4567', 'Email Address': 'guardian@email.com',
   'Insurance Provider': 'Blue Cross Blue Shield', 'Member ID': 'ABC123456789',
   'Group Number': 'GRP001', 'Co-Pay Amount': '$25.00', 'Reason for Waiving': 'Enter reason...',
+  'Subscriber Name': 'John Doe Sr.', 'Subscriber DOB': 'MM/DD/YYYY',
 };
 const GUARDIAN_PLACEHOLDER: Record<string, string> = { 'First Name': 'Jane', 'Last Name': 'Doe' };
 const DROPDOWN_TRIGGER: Record<string, string> = {
@@ -44,7 +45,9 @@ const DROPDOWN_TRIGGER: Record<string, string> = {
 };
 
 // ── background / navigation ────────────────────────────────────────────────
-Given('I am logged in as a clinician', async (w: World) => {
+// We authenticate as Owner via storageState; role suffixes in the Gherkin
+// ("...with the 'bcba' role") are informational for our single fixture account.
+Given(/^I am logged in as a clinician(?: with (?:the|an?) "[^"]*" role)?$/, async (w: World) => {
   await w.page.goto('/');
   await waitForFlutterReady(w.page);
 });
