@@ -2,3 +2,4 @@
 import './common.steps';
 import './copay.steps';
 import './insurance.steps';
+import './navigation.steps';
