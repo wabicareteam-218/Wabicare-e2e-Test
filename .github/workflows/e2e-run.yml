@@ -39,6 +39,7 @@ permissions:
   contents: read
   pages: write        # publish the dashboard to GitHub Pages
   id-token: write     # required by actions/deploy-pages
+  checks: write       # JUnit results → run summary / checks
 
 jobs:
   e2e:
@@ -94,12 +95,13 @@ jobs:
         env:
           BDD_FEATURE: ${{ github.event.inputs.feature }}
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/full-run.json
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: test-results/junit.xml
         run: |
-          GREP_ARG=""
-          if [ -n "${{ steps.suite.outputs.grep }}" ]; then GREP_ARG="-g \"${{ steps.suite.outputs.grep }}\""; fi
-          eval xvfb-run -a npx playwright test --project=chromium --no-deps --headed \
-            ${{ steps.suite.outputs.spec }} $GREP_ARG \
-            --reporter=list,json,junit
+          ARGS=(--project=chromium --no-deps --headed --reporter=list,json,junit)
+          for s in ${{ steps.suite.outputs.spec }}; do ARGS+=("$s"); done
+          if [ -n "${{ steps.suite.outputs.grep }}" ]; then ARGS+=(-g "${{ steps.suite.outputs.grep }}"); fi
+          echo "Running: playwright test ${ARGS[*]}"
+          xvfb-run -a npx playwright test "${ARGS[@]}"
 
       - name: Build coverage dashboard
         if: always()
