@@ -20,8 +20,8 @@ on:
       suite:
         description: Which tests to run
         type: choice
-        default: full
-        options: [full, bespoke, bdd, smoke]
+        default: ready
+        options: [ready, full, bespoke, bdd, smoke]
       feature:
         description: 'BDD feature filter (optional, e.g. copay, patient-insurance)'
         required: false
@@ -84,16 +84,20 @@ jobs:
         run: |
           SUITE="${{ github.event.inputs.suite }}"; SUITE="${SUITE:-full}"
           BESPOKE="tests/login.spec.ts tests/patient-intake-rujitha.spec.ts tests/schedule.spec.ts tests/sessions.spec.ts"
+          # Features that are actually automated (green) today.
+          READY_BDD="copay,patient-insurance,navigation-and-permissions"
+          FEATURE_INPUT="${{ github.event.inputs.feature }}"
           case "$SUITE" in
-            smoke)   echo "spec=tests/login.spec.ts" >> "$GITHUB_OUTPUT"; echo "grep=landing page" >> "$GITHUB_OUTPUT" ;;
-            bespoke) echo "spec=$BESPOKE" >> "$GITHUB_OUTPUT"; echo "grep=" >> "$GITHUB_OUTPUT" ;;
-            bdd)     echo "spec=tests/bdd.spec.ts" >> "$GITHUB_OUTPUT"; echo "grep=" >> "$GITHUB_OUTPUT" ;;
-            *)       echo "spec=$BESPOKE tests/bdd.spec.ts" >> "$GITHUB_OUTPUT"; echo "grep=" >> "$GITHUB_OUTPUT" ;;
+            smoke)   echo "spec=tests/login.spec.ts" >> "$GITHUB_OUTPUT"; echo "grep=landing page" >> "$GITHUB_OUTPUT"; echo "bdd=" >> "$GITHUB_OUTPUT" ;;
+            bespoke) echo "spec=$BESPOKE" >> "$GITHUB_OUTPUT"; echo "grep=" >> "$GITHUB_OUTPUT"; echo "bdd=" >> "$GITHUB_OUTPUT" ;;
+            bdd)     echo "spec=tests/bdd.spec.ts" >> "$GITHUB_OUTPUT"; echo "grep=" >> "$GITHUB_OUTPUT"; echo "bdd=$FEATURE_INPUT" >> "$GITHUB_OUTPUT" ;;
+            ready)   echo "spec=$BESPOKE tests/bdd.spec.ts" >> "$GITHUB_OUTPUT"; echo "grep=" >> "$GITHUB_OUTPUT"; echo "bdd=${FEATURE_INPUT:-$READY_BDD}" >> "$GITHUB_OUTPUT" ;;
+            *)       echo "spec=$BESPOKE tests/bdd.spec.ts" >> "$GITHUB_OUTPUT"; echo "grep=" >> "$GITHUB_OUTPUT"; echo "bdd=$FEATURE_INPUT" >> "$GITHUB_OUTPUT" ;;
           esac
 
       - name: Run E2E (auth already minted → --no-deps)
         env:
-          BDD_FEATURE: ${{ github.event.inputs.feature }}
+          BDD_FEATURE: ${{ steps.suite.outputs.bdd }}
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/full-run.json
           PLAYWRIGHT_JUNIT_OUTPUT_NAME: test-results/junit.xml
         run: |

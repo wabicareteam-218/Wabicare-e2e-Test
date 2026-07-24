@@ -19,9 +19,15 @@ The idea: **every code change gets the cheap `validate` gate automatically** (it
 
 ## Running it
 
-- **Manually:** Actions → **E2E run** → *Run workflow*. Choose a `suite`
-  (`full` / `bespoke` / `bdd` / `smoke`) and optionally a single BDD `feature`
-  (e.g. `copay`, `patient-insurance`, `navigation-and-permissions`).
+- **Manually:** Actions → **E2E run** → *Run workflow*. Choose a `suite`:
+  - `ready` (default) — only the **completed/automated** features: the bespoke
+    specs + the green BDD features (copay, patient-insurance,
+    navigation-and-permissions). Skips the ~1100 drafted/pending scenarios.
+  - `full` — everything (bespoke + all BDD; pending scenarios show as skipped).
+  - `bespoke` — login, intake, scheduling, sessions only.
+  - `bdd` — the BDD runner (optionally narrowed with the `feature` input).
+  - `smoke` — just the landing-page checks (fast pipeline sanity).
+  Optionally set `feature` to one BDD feature name to narrow `bdd`/`ready`.
 - **Nightly:** runs `full` automatically at ~06:00 UTC.
 - **On every app code change:** have the **app repo's** deploy pipeline fire a
   `repository_dispatch` after it publishes to dev:

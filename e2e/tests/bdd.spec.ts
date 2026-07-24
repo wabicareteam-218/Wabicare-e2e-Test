@@ -14,8 +14,10 @@ import { makeWorld } from '../bdd/world';
 import '../bdd/steps/index';
 
 const FEATURES_DIR = path.join(__dirname, '..', 'features');
-const only = process.env.BDD_FEATURE;
-const features = parseAllFeatures(FEATURES_DIR).filter((f) => !only || f.name === only);
+// BDD_FEATURE may be one feature ("copay") or a comma-separated list
+// ("copay,patient-insurance,navigation-and-permissions").
+const only = (process.env.BDD_FEATURE || '').split(',').map((s) => s.trim()).filter(Boolean);
+const features = parseAllFeatures(FEATURES_DIR).filter((f) => only.length === 0 || only.includes(f.name));
 
 test.describe.configure({ mode: 'default' });
 
