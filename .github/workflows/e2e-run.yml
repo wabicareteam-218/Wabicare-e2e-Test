@@ -1,0 +1,121 @@
+name: E2E run
+
+# Runs the E2E suite against the deployed app (dev.wabicare.com), mints fresh
+# auth via the Microsoft CIAM setup project, and publishes the interactive
+# dashboard + Gherkin/JUnit reports as artifacts.
+#
+# Triggers:
+#   - workflow_dispatch  — devs click "Run workflow" (choose suite / one feature)
+#   - schedule           — nightly regression + fresh dashboard
+#   - repository_dispatch (type: app-deployed) — the APP repo fires this after a
+#     deploy so E2E runs on every app code change (see e2e/CI.md for the curl).
+#
+# Requires repo secrets: E2E_LOGIN_EMAIL, E2E_LOGIN_PASSWORD.
+# Runs are serialized (one at a time) so concurrent CIAM logins never trip
+# Azure AD B2C smart-lockout.
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which tests to run
+        type: choice
+        default: full
+        options: [full, bespoke, bdd, smoke]
+      feature:
+        description: 'BDD feature filter (optional, e.g. copay, patient-insurance)'
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 6 * * *'   # ~06:00 UTC nightly
+  repository_dispatch:
+    types: [app-deployed]
+
+concurrency:
+  group: wabi-e2e-run
+  cancel-in-progress: false   # queue, don't kill an in-flight login
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chrome + system deps (config uses channel "chrome")
+        run: npx playwright install --with-deps chrome
+
+      - name: Install xvfb (headed Chrome needs a virtual display)
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Write .env (single-quoted so dotenv keeps a trailing "#")
+        env:
+          E2E_LOGIN_EMAIL: ${{ secrets.E2E_LOGIN_EMAIL }}
+          E2E_LOGIN_PASSWORD: ${{ secrets.E2E_LOGIN_PASSWORD }}
+        run: |
+          {
+            printf "E2E_LOGIN_EMAIL=%s\n" "$E2E_LOGIN_EMAIL"
+            printf "E2E_LOGIN_PASSWORD='%s'\n" "$E2E_LOGIN_PASSWORD"
+          } > .env
+
+      - name: Authenticate (Microsoft CIAM — setup project)
+        run: xvfb-run -a npx playwright test --project=setup --headed
+
+      - name: Select suite
+        id: suite
+        run: |
+          SUITE="${{ github.event.inputs.suite }}"; SUITE="${SUITE:-full}"
+          BESPOKE="tests/login.spec.ts tests/patient-intake-rujitha.spec.ts tests/schedule.spec.ts tests/sessions.spec.ts"
+          case "$SUITE" in
+            smoke)   echo "spec=tests/login.spec.ts" >> "$GITHUB_OUTPUT"; echo "grep=landing page" >> "$GITHUB_OUTPUT" ;;
+            bespoke) echo "spec=$BESPOKE" >> "$GITHUB_OUTPUT"; echo "grep=" >> "$GITHUB_OUTPUT" ;;
+            bdd)     echo "spec=tests/bdd.spec.ts" >> "$GITHUB_OUTPUT"; echo "grep=" >> "$GITHUB_OUTPUT" ;;
+            *)       echo "spec=$BESPOKE tests/bdd.spec.ts" >> "$GITHUB_OUTPUT"; echo "grep=" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Run E2E (auth already minted → --no-deps)
+        env:
+          BDD_FEATURE: ${{ github.event.inputs.feature }}
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/full-run.json
+        run: |
+          GREP_ARG=""
+          if [ -n "${{ steps.suite.outputs.grep }}" ]; then GREP_ARG="-g \"${{ steps.suite.outputs.grep }}\""; fi
+          eval xvfb-run -a npx playwright test --project=chromium --no-deps --headed \
+            ${{ steps.suite.outputs.spec }} $GREP_ARG \
+            --reporter=list,json,junit
+
+      - name: Build coverage dashboard
+        if: always()
+        run: node tools/build-dashboard.mjs
+
+      - name: Upload reports (dashboard + Gherkin + Playwright + JUnit)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports-${{ github.run_number }}
+          path: |
+            e2e/dashboard
+            e2e/gherkin-report
+            e2e/playwright-report
+            e2e/test-results/junit.xml
+          retention-days: 30
+
+      - name: Publish JUnit results to the run summary
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: e2e/test-results/junit.xml
+          check_name: E2E results
+          require_tests: false
