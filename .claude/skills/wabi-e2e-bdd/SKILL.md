@@ -113,9 +113,17 @@ is honest and keeps the suite green; faking assertions is not allowed.
 
 ## Reachability audit before you start a feature
 
-Source presence ≠ UI reachability. Verified dead ends:
-- **assessment.feature** — the "Assessment" patient tab is intentionally NOT exposed
-  (`patient_tabs.dart:38`; run via the assessment session type). Whole feature pending.
+Source presence ≠ UI reachability. Verified dead ends / model changes:
+- **assessment.feature** — CHANGED (feature #391) and REWRITTEN 2026-07 to match
+  live. Assessment is NOT a patient tab; it is an appointment/**session type**
+  ("Direct Service" dropdown → "Assessment"; sub-types Initial/Re-Auth/Annual
+  Review). It appears in the unified Sessions list and RUNS in the **Session
+  Workspace** as 5 section pills — primary "Beneficiary", "Parent interview";
+  under "More": "Scoring", "Direct observation", "Report" (Scoring instruments:
+  VB-MAPP Milestones/Barriers, Vineland, ABLLS); started via "Start assessment".
+  The workspace scenarios are tagged `@needs-live` (drafted from source, pending
+  BDD automation of the section editor). If the app changes again, re-probe and
+  re-write the feature the same way.
 - **documents.feature** — the Documents *tab* is a "Coming Soon" stub; real upload is
   the separate **"Files" modal** (folder icon), `FileType.any`.
 - **patients-list** — the "Search patients…" input has no `onChanged` (search doesn't
@@ -146,7 +154,8 @@ overlays real run results onto every scenario: ✅ pass / ❌ fail (error+screen
   `navigation-and-permissions` (14).
 - ✅ **Bespoke specs (not BDD):** login, patient-intake (incl. insurance card
   upload), scheduling, sessions — in `e2e/tests/*.spec.ts`.
-- ⛔ **Blocked:** `assessment` (unexposed tab).
+- 🔁 **`assessment`** — rewritten to the session-type model (#391); runs in the
+  Sessions workspace. Feature updated; workspace scenarios `@needs-live` (pending).
 - ⬜ **Not yet automated:** authorization, documents (via Files modal), dashboard,
   settings, patients-list, billing, communication, reports, tools-tasks, kyc,
   care-circle, audit-trail, discharge, patient-status-lifecycle, session-*,
