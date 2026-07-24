@@ -35,6 +35,11 @@ concurrency:
   group: wabi-e2e-run
   cancel-in-progress: false   # queue, don't kill an in-flight login
 
+permissions:
+  contents: read
+  pages: write        # publish the dashboard to GitHub Pages
+  id-token: write     # required by actions/deploy-pages
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
@@ -119,3 +124,54 @@ jobs:
           report_paths: e2e/test-results/junit.xml
           check_name: E2E results
           require_tests: false
+
+  # Publish the dashboard + Gherkin/Playwright reports to GitHub Pages (a live,
+  # always-current URL). Runs even if some tests failed, so the report still
+  # updates. One-time setup: Settings → Pages → Source = "GitHub Actions".
+  publish-pages:
+    needs: e2e
+    if: ${{ always() && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Download the reports artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-reports-${{ github.run_number }}
+          path: site
+
+      - name: Add a landing page linking the reports
+        run: |
+          cat > site/index.html <<'HTML'
+          <!doctype html><meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Wabi E2E Reports</title>
+          <style>
+            body{font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+                 max-width:640px;margin:8vh auto;padding:0 20px;color:#12203a;background:#f4f6fb}
+            @media(prefers-color-scheme:dark){body{background:#0f1420;color:#e6ebf5}}
+            a{display:block;padding:14px 16px;margin:10px 0;border-radius:12px;text-decoration:none;
+              border:1px solid #ccd;background:#fff;color:inherit}
+            @media(prefers-color-scheme:dark){a{background:#161d2e;border-color:#26324d}}
+            small{color:#7a8aa8}
+          </style>
+          <h1>Wabi E2E Reports</h1>
+          <p><small>Updated by the latest <code>E2E run</code> workflow.</small></p>
+          <a href="dashboard/index.html"><b>Coverage dashboard</b><br><small>Feature → Scenario → Gherkin steps · pass / fail / pending · screenshots</small></a>
+          <a href="gherkin-report/index.html"><b>Last run — Gherkin report</b></a>
+          <a href="playwright-report/index.html"><b>Last run — Playwright report</b></a>
+          HTML
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

@@ -46,10 +46,21 @@ Each **E2E run** uploads an artifact `e2e-reports-<n>` containing:
 
 Download the artifact and open `dashboard/index.html` (or `playwright-report/index.html`).
 
-> To publish the dashboard to GitHub Pages automatically, add a Pages deploy step
-> (`actions/upload-pages-artifact` + `actions/deploy-pages`) to `e2e-run.yml`.
-> It's left out by default so it doesn't clash with the repo's existing
-> root-served Gherkin report.
+### Live dashboard on GitHub Pages
+
+The **E2E run** also publishes to GitHub Pages, so there's a permanent URL that
+auto-updates after every run — no download needed. The landing page links the
+**coverage dashboard**, the **Gherkin report**, and the **Playwright report**.
+
+**One-time setup (repo admin):** Settings → **Pages** → **Source = "GitHub
+Actions"**.
+
+> ⚠️ Behaviour change: the repo currently serves the committed Gherkin report via
+> Pages' "Deploy from a branch" (root `index.html` redirect). Switching the source
+> to "GitHub Actions" means Pages is updated **by the E2E run workflow instead of
+> on every push to `main`** — i.e. it reflects the last *test run*, not the last
+> commit. The published site still includes the Gherkin report, so nothing is lost.
+> The Pages URL appears in each run's summary (the `github-pages` environment).
 
 ## Caveats (be aware)
 
